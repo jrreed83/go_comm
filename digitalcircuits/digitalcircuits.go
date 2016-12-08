@@ -14,6 +14,7 @@ func rising_edge(input chan uint8) chan bool {
 				status = false
 			}
 			out <- status
+			state = curr
 		}
 	}()
 

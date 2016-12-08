@@ -5,21 +5,22 @@ func rising_edge(input_chan chan uint8) chan bool {
 
 	go func() {
 		var state uint8
-		var status bool
+		//var status bool
 
 		// Pull the first sample off the channel rather
 		// than initialize arbitrarily.  To avoid deadlock
 		// we need to send to the output channel
 		state = <-input_chan
-		output_chan <- false
+		//output_chan <- false
 		for {
 			curr := <-input_chan
 			if curr == 1 && state == 0 {
-				status = true
+				//status = true
+				output_chan <- true
 			} else {
-				status = false
+				//status = false
 			}
-			output_chan <- status
+			//output_chan <- status
 			state = curr
 		}
 	}()

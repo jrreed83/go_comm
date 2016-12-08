@@ -4,8 +4,14 @@ func rising_edge(input chan uint8) chan bool {
 	out := make(chan bool)
 
 	go func() {
-		var state uint8 = 0
+		var state uint8
 		var status bool
+
+		// Pull the first sample off the channel rather
+		// than initialize arbitrarily.  To avoid deadlock
+		// we need to send to the output channel
+		state = <-input
+		out <- false
 		for {
 			curr := <-input
 			if curr == 1 && state == 0 {
@@ -23,14 +29,14 @@ func rising_edge(input chan uint8) chan bool {
 
 func d_flip_flop(clk chan uint8, data chan uint8, output chan uint8) {
 	var state uint8 = 0
-	var prv_clk uint8 = 0
+
+	evt_chan := rising_edge(clk)
 
 	for {
-		curr_clk := <-clk
-		curr_data := <-data
 
-		if 1 == curr_clk && prv_clk == 0 {
-			output <- state
+		curr_data := <-data
+		output <- state
+		if <-evt_chan {
 			state = curr_data
 		}
 	}

@@ -8,10 +8,13 @@ func rising_edge(input_chan chan uint8) chan bool {
 
 		// Pull the first sample off the channel rather
 		state = <-input_chan
+		output_chan <- false
 		for {
 			curr := <-input_chan
 			if curr == 1 && state == 0 {
-				output_chan <- true // Event only gets triggered here
+				output_chan <- true
+			} else {
+				output_chan <- false
 			}
 			state = curr
 		}
@@ -27,12 +30,10 @@ func d_flip_flop(clk_chan chan uint8, data_chan chan uint8, output_chan chan uin
 
 	for {
 
-		curr_data := <-data_chan
-		select {
-		case <-evt_chan:
-			state = curr_data
-		default:
-			// No event => Do nothing
+		data := <-data_chan
+		evt := <-evt_chan
+		if evt {
+			state = data
 		}
 		output_chan <- state
 	}

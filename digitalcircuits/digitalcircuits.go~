@@ -32,7 +32,7 @@ func d_flip_flop(clk_chan chan uint8, data_chan chan uint8, output_chan chan uin
 		case <-evt_chan:
 			state = curr_data
 		default:
-			continue
+			// No event => Do nothing
 		}
 		output_chan <- state
 	}
@@ -54,7 +54,7 @@ func counter(clk_chan chan uint8, enable_chan chan uint8, reset_chan chan uint8,
 				count = 0
 			}
 		default:
-			continue
+			// No event => Do nothing
 		}
 		output_chan <- count
 	}

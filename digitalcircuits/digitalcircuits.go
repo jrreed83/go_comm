@@ -5,22 +5,14 @@ func rising_edge(input_chan chan uint8) chan bool {
 
 	go func() {
 		var state uint8
-		//var status bool
 
 		// Pull the first sample off the channel rather
-		// than initialize arbitrarily.  To avoid deadlock
-		// we need to send to the output channel
 		state = <-input_chan
-		//output_chan <- false
 		for {
 			curr := <-input_chan
 			if curr == 1 && state == 0 {
-				//status = true
-				output_chan <- true
-			} else {
-				//status = false
+				output_chan <- true // Event only gets triggered here
 			}
-			//output_chan <- status
 			state = curr
 		}
 	}()
@@ -36,10 +28,13 @@ func d_flip_flop(clk_chan chan uint8, data_chan chan uint8, output_chan chan uin
 	for {
 
 		curr_data := <-data_chan
-		output_chan <- state
-		if <-evt_chan {
+		select {
+		case <-evt_chan:
 			state = curr_data
+		default:
+			continue
 		}
+		output_chan <- state
 	}
 }
 
@@ -50,12 +45,16 @@ func counter(clk_chan chan uint8, enable_chan chan uint8, reset_chan chan uint8,
 	for {
 		enable := <-enable_chan
 		reset := <-reset_chan
-		if <-evt_chan {
+
+		select {
+		case <-evt_chan:
 			if 1 == enable {
 				count = count + 1
 			} else if 1 == reset {
 				count = 0
 			}
+		default:
+			continue
 		}
 		output_chan <- count
 	}

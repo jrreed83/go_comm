@@ -46,16 +46,14 @@ func counter(clk_chan chan uint8, enable_chan chan uint8, reset_chan chan uint8,
 	for {
 		enable := <-enable_chan
 		reset := <-reset_chan
+		event := <-evt_chan
 
-		select {
-		case <-evt_chan:
+		if event {
 			if 1 == enable {
 				count = count + 1
 			} else if 1 == reset {
 				count = 0
 			}
-		default:
-			// No event => Do nothing
 		}
 		output_chan <- count
 	}

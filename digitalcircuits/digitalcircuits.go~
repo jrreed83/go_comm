@@ -29,13 +29,18 @@ func d_flip_flop(clk_chan chan uint8, data_chan chan uint8, output_chan chan uin
 	evt_chan := rising_edge(clk_chan)
 
 	for {
-
+		// Get data off input lines
 		data := <-data_chan
 		evt := <-evt_chan
+
+		// Event based logic
 		if evt {
 			state = data
 		}
+
+		// Put data onto output line
 		output_chan <- state
+
 	}
 }
 

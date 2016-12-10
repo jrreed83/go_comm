@@ -1,22 +1,24 @@
-package digitalcircuits
+package digitaldesign
 
 func rising_edge(input_chan chan uint8) chan bool {
 	output_chan := make(chan bool)
 
 	go func() {
-		var state uint8
-
-		// Pull the first sample off the channel rather
-		state = <-input_chan
-		output_chan <- false
+		var event bool
+		var prev uint8 = 0
+		var curr uint8
 		for {
-			curr := <-input_chan
-			if curr == 1 && state == 0 {
-				output_chan <- true
-			} else {
-				output_chan <- false
-			}
-			state = curr
+			// Pull data off input line
+			curr = <-input_chan
+
+			// Determine if rising edge event is triggered
+			event = (curr == 1) && (prev == 0)
+
+			// Put data onto output channel
+			output_chan <- event
+
+			// Self explanatory
+			prev = curr
 		}
 	}()
 

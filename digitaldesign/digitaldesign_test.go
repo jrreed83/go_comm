@@ -1,4 +1,4 @@
-package digitalcircuits
+package digitaldesign
 
 import (
 	"sync"

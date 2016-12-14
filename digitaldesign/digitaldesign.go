@@ -8,14 +8,13 @@ type DFF struct {
 
 func (d DFF) Kickoff() {
 	go func() {
+
 		var state uint8 = 0
 
-		evt_chan := rising_edge(d.clk_port)
+		for evt := range rising_edge(d.clk_port) {
 
-		for {
 			// Get data off input lines
 			data := <-d.input_port
-			evt := <-evt_chan
 
 			// Event based logic
 			if evt {

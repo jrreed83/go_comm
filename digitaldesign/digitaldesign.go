@@ -1,5 +1,34 @@
 package digitaldesign
 
+type DFF struct {
+	input_port  chan uint8
+	output_port chan uint8
+	clk_port    chan uint8
+}
+
+func (d DFF) Kickoff() {
+	go func() {
+		var state uint8 = 0
+
+		evt_chan := rising_edge(d.clk_port)
+
+		for {
+			// Get data off input lines
+			data := <-d.input_port
+			evt := <-evt_chan
+
+			// Event based logic
+			if evt {
+				state = data
+			}
+
+			// Put data onto output line
+			d.output_port <- state
+		}
+	}()
+
+}
+
 func rising_edge(input_chan chan uint8) chan bool {
 	output_chan := make(chan bool)
 

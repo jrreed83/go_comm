@@ -14,7 +14,7 @@ func TestDFF(t *testing.T) {
 	dff := DFF{input_port: data, output_port: output, clk_port: clk}
 
 	t.Log("Kicking off Flip-Flop")
-	dff.Kickoff()
+	dff.Start()
 
 	var wg sync.WaitGroup
 

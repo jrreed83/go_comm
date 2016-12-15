@@ -6,7 +6,7 @@ type DFF struct {
 	clk_port    chan uint8
 }
 
-func (d DFF) Kickoff() {
+func (d DFF) Start() {
 	go func() {
 
 		var state uint8 = 0
@@ -29,18 +29,26 @@ func (d DFF) Kickoff() {
 }
 
 func rising_edge(input_chan chan uint8) chan bool {
+
 	output_chan := make(chan bool)
 
 	go func() {
-		var event bool
+		var event bool = false
 		var prev uint8 = 0
-		var curr uint8
+		var curr uint8 = 0
+		var first bool = false
 		for {
 			// Pull data off input line
 			curr = <-input_chan
 
-			// Determine if rising edge event is triggered
-			event = (curr == 1) && (prev == 0)
+			if first {
+				event = false
+				first = false
+			} else {
+
+				// Determine if rising edge event is triggered
+				event = (curr == 1) && (prev == 0)
+			}
 
 			// Put data onto output channel
 			output_chan <- event

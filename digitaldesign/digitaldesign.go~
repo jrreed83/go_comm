@@ -6,20 +6,19 @@ type DFF struct {
 	clk_port    chan byte
 }
 
-func (d DFF) Start() {
+func (d *DFF) Start() {
 	go func() {
 
 		var state byte = 0
 
 		// Look for rising-edge event
-		for evt := range rising_edge(d.clk_port) {
-
-			// Get data off input lines
-			data := <-d.data_port
+		for is_rising_edge := range rising_edge(d.clk_port) {
 
 			// Event based logic
-			if evt {
-				state = data
+			if is_rising_edge {
+				state = <-d.data_port
+			} else {
+				<-d.data_port // drop on the floor
 			}
 
 			// Put data onto output line

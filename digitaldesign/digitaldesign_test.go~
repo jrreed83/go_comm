@@ -7,14 +7,14 @@ import (
 )
 
 func TestDFF(t *testing.T) {
-	clk := make(chan byte)
-	data := make(chan byte)
-	output := make(chan byte)
+	clkLine := make(chan byte)
+	dataLine := make(chan byte)
+	outputLine := make(chan byte)
 
-	dff := DFF{data_port: data, output_port: output, clk_port: clk}
+	circuit := dff{dataLine: dataLine, outputLine: outputLine, clkLine: clkLine}
 
 	t.Log("Kicking off Flip-Flop")
-	dff.Start()
+	circuit.Start(0)
 
 	var wg sync.WaitGroup
 
@@ -22,39 +22,39 @@ func TestDFF(t *testing.T) {
 
 	t.Log("Kicking Off Clock")
 	go func() {
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 0
+		clkLine <- 0
+		clkLine <- 1
+		clkLine <- 0
+		clkLine <- 1
+		clkLine <- 0
+		clkLine <- 1
+		clkLine <- 0
+		clkLine <- 1
+		clkLine <- 0
+		clkLine <- 1
+		clkLine <- 0
 		wg.Done()
 	}()
 	t.Log("Kicking Off Data Line")
 	go func() {
-		data <- 23
-		data <- 23
-		data <- 65
-		data <- 54
-		data <- 41
-		data <- 42
-		data <- 12
-		data <- 12
-		data <- 75
-		data <- 46
-		data <- 34
+		dataLine <- 23
+		dataLine <- 23
+		dataLine <- 65
+		dataLine <- 54
+		dataLine <- 41
+		dataLine <- 42
+		dataLine <- 12
+		dataLine <- 12
+		dataLine <- 75
+		dataLine <- 46
+		dataLine <- 34
 		wg.Done()
 	}()
 
 	go func() {
 		for {
 			select {
-			case y := <-output:
+			case y := <-outputLine:
 				t.Log(y)
 			case <-time.After(1):
 				t.Log("Times Out ... Quitting")
@@ -65,50 +65,5 @@ func TestDFF(t *testing.T) {
 	}()
 
 	wg.Wait()
-
-}
-
-func TestClockEvent(t *testing.T) {
-	// Initialize Clock Channel
-	clk := make(chan uint8)
-
-	event := rising_edge(clk)
-
-	t.Log("Kicking off Clock")
-
-	go func() {
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 1
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 1
-		clk <- 0
-		clk <- 1
-		clk <- 0
-		clk <- 1
-	}()
-
-	go func() {
-		for {
-			select {
-			case evt := <-event:
-				if evt {
-					t.Log("y")
-				} else {
-					t.Log("n")
-				}
-			case <-time.After(1):
-				t.Log("Timed Out ... Quitting")
-				return
-			}
-		}
-
-	}()
-
-	time.Sleep(1)
 
 }

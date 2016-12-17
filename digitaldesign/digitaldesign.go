@@ -1,36 +1,30 @@
 package digitaldesign
 
-type DFF struct {
-	data_port   chan byte
-	output_port chan byte
-	clk_port    chan byte
+type dff struct {
+	dataLine   chan byte
+	outputLine chan byte
+	clkLine    chan byte
 }
 
-func (d *DFF) Start() {
+func (d *dff) Start(state byte) {
 	go func() {
-
-		var state byte = 0
-
-		// Look for rising-edge event
-		for is_rising_edge := range rising_edge(d.clk_port) {
-
-			// Event based logic
-			if is_rising_edge {
-				state = <-d.data_port
-			} else {
-				<-d.data_port // drop on the floor
+		//var state byte = 0
+		evtLine := risingEdge(d.clkLine)
+		for {
+			evt := <-evtLine
+			data := <-d.dataLine
+			if evt {
+				state = data
 			}
-
-			// Put data onto output line
-			d.output_port <- state
+			d.outputLine <- state
 		}
 	}()
 
 }
 
-func rising_edge(input_chan chan byte) chan bool {
+func risingEdge(inputLine chan byte) chan bool {
 
-	output_chan := make(chan bool)
+	outputLine := make(chan bool)
 
 	go func() {
 		var event bool = false
@@ -38,45 +32,17 @@ func rising_edge(input_chan chan byte) chan bool {
 		var curr byte = 0
 		var first bool = false
 		for {
-			// Pull data off input line
-			curr = <-input_chan
-
+			curr = <-inputLine
 			if first {
 				event = false
 				first = false
 			} else {
-
-				// Determine if rising edge event is triggered
 				event = (curr == 1) && (prev == 0)
 			}
-
-			// Put data onto output channel
-			output_chan <- event
-
-			// Self explanatory
+			outputLine <- event
 			prev = curr
 		}
 	}()
 
-	return output_chan
-}
-
-func counter(clk_chan chan uint8, enable_chan chan uint8, reset_chan chan uint8, output_chan chan uint8) {
-	var count uint8 = 0
-	evt_chan := rising_edge(clk_chan)
-
-	for {
-		enable := <-enable_chan
-		reset := <-reset_chan
-		event := <-evt_chan
-
-		if event {
-			if 1 == enable {
-				count = count + 1
-			} else if 1 == reset {
-				count = 0
-			}
-		}
-		output_chan <- count
-	}
+	return outputLine
 }

@@ -23,16 +23,13 @@ func (d *dff) Start(state byte) {
 }
 
 func risingEdge(inputLine chan byte) chan bool {
-
 	outputLine := make(chan bool)
-
 	go func() {
-		var event bool = false
+		event := false
+		first := false
 		var prev byte = 0
-		var curr byte = 0
-		var first bool = false
 		for {
-			curr = <-inputLine
+			curr := <-inputLine
 			if first {
 				event = false
 				first = false
@@ -43,6 +40,5 @@ func risingEdge(inputLine chan byte) chan bool {
 			prev = curr
 		}
 	}()
-
 	return outputLine
 }

@@ -1,9 +1,9 @@
 package digitaldesign
 
 type dff struct {
-	dataLine   chan byte
-	outputLine chan byte
-	clkLine    chan byte
+	clkLine    <-chan byte
+	dataLine   <-chan byte
+	outputLine chan<- byte
 }
 
 func (d *dff) Start(state byte) {
@@ -21,7 +21,7 @@ func (d *dff) Start(state byte) {
 
 }
 
-func risingEdge(inputLine chan byte) chan bool {
+func risingEdge(inputLine <-chan byte) chan bool {
 	outputLine := make(chan bool)
 	go func() {
 		isRisingEdge := false

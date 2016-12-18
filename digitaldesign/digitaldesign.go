@@ -8,12 +8,11 @@ type dff struct {
 
 func (d *dff) Start(state byte) {
 	go func() {
-		//var state byte = 0
-		evtLine := risingEdge(d.clkLine)
+		risingEdgeLine := risingEdge(d.clkLine)
 		for {
-			evt := <-evtLine
+			isRisingEdge := <-risingEdgeLine
 			data := <-d.dataLine
-			if evt {
+			if isRisingEdge {
 				state = data
 			}
 			d.outputLine <- state

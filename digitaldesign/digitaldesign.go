@@ -8,11 +8,11 @@ type dff struct {
 
 func (d *dff) Start(state byte) {
 	go func() {
-		risingEdgeLine := risingEdge(d.clkLine)
+		risingEdge := risingEdgeAction()
 		for {
-			isRisingEdge := <-risingEdgeLine
+			clk := <-d.clkLine
 			data := <-d.dataLine
-			if isRisingEdge {
+			if risingEdge(clk) {
 				state = data
 			}
 			d.outputLine <- state
@@ -21,7 +21,23 @@ func (d *dff) Start(state byte) {
 
 }
 
-func risingEdge(inputLine <-chan byte) chan bool {
+func risingEdgeAction() func(byte) bool {
+	isFirstSample := true
+	var prevClk byte
+	action := func(currClk byte) bool {
+		if isFirstSample {
+			isFirstSample = false
+			prevClk = currClk
+			return false
+		}
+		risingEdge := (currClk == 1) && (prevClk == 0)
+		prevClk = currClk
+		return risingEdge
+	}
+	return action
+}
+
+func risingEdgeGen(inputLine <-chan byte) chan bool {
 	outputLine := make(chan bool)
 	go func() {
 		isRisingEdge := false

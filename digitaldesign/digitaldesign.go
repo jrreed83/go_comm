@@ -37,23 +37,23 @@ func risingEdgeAction() func(byte) bool {
 	return action
 }
 
-func risingEdgeGen(inputLine <-chan byte) chan bool {
-	outputLine := make(chan bool)
-	go func() {
-		isRisingEdge := false
-		isFirstSample := false
-		var prev byte = 0
-		for {
-			curr := <-inputLine
-			if isFirstSample {
-				isRisingEdge = false
-				isFirstSample = false
-			} else {
-				isRisingEdge = (curr == 1) && (prev == 0)
-			}
-			outputLine <- isRisingEdge
-			prev = curr
-		}
-	}()
-	return outputLine
+type spiMaster struct {
+	cmdLine  chan<- byte
+	sclkLine chan<- byte
+	mosiLine chan<- byte
+	misoLine <-chan byte
+	ssLine   <-chan byte
+}
+
+type spiSlave struct {
+	sclkLine   <-chan byte
+	mosiLine   <-chan byte
+	misoLine   chan<- byte
+	ssLine     chan<- byte
+	outputLine chan<- byte
+}
+
+type spiBus struct {
+	master spiMaster
+	slave  spiSlave
 }

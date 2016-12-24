@@ -1,0 +1,14 @@
+package ipc
+
+type ringbuffer struct {
+	readPtr  uint32
+	writePtr uint32
+	capacity uint32
+	buffer   []byte
+}
+
+func (r ringbuffer) write(x byte) {
+}
+
+func (r ringbuffer) read() byte {
+}

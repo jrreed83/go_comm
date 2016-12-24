@@ -2,7 +2,7 @@ package ringbuffer
 
 import "errors"
 
-type ringbuffer struct {
+type RingBuffer struct {
 	readPtr  uint32
 	writePtr uint32
 	capacity uint32
@@ -10,15 +10,15 @@ type ringbuffer struct {
 	length   uint32
 }
 
-func NewRingBuffer(capacity uint32) *ringbuffer {
-	return &ringbuffer{readPtr: 0,
+func NewRingBuffer(capacity uint32) *RingBuffer {
+	return &RingBuffer{readPtr: 0,
 		writePtr: 0,
 		capacity: capacity,
 		buffer:   make([]byte, capacity),
 		length:   0}
 }
 
-func (r *ringbuffer) write(x byte) error {
+func (r *RingBuffer) Write(x byte) error {
 	if r.length == r.capacity {
 		return errors.New("No space to write")
 	}
@@ -28,7 +28,7 @@ func (r *ringbuffer) write(x byte) error {
 	return nil
 }
 
-func (r *ringbuffer) read() (byte, error) {
+func (r *RingBuffer) Read() (byte, error) {
 	if r.length == 0 {
 		return 0, errors.New("No items to read")
 	}

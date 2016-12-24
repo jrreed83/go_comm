@@ -1,12 +1,12 @@
 package digitaldesign
 
-type dff struct {
+type DFlipFlop struct {
 	clkLine    <-chan byte
 	dataLine   <-chan byte
 	outputLine chan<- byte
 }
 
-func (d *dff) Start(state byte) {
+func (d *DFlipFlop) Start(state byte) {
 	go func() {
 		risingEdge := risingEdgeAction()
 		for {
@@ -37,7 +37,7 @@ func risingEdgeAction() func(byte) bool {
 	return action
 }
 
-type spiMaster struct {
+type SpiMaster struct {
 	cmdLine  chan<- byte
 	sclkLine chan<- byte
 	mosiLine chan<- byte
@@ -45,7 +45,7 @@ type spiMaster struct {
 	ssLine   <-chan byte
 }
 
-type spiSlave struct {
+type SpiSlave struct {
 	sclkLine   <-chan byte
 	mosiLine   <-chan byte
 	misoLine   chan<- byte
@@ -53,7 +53,7 @@ type spiSlave struct {
 	outputLine chan<- byte
 }
 
-type spiBus struct {
-	master spiMaster
-	slave  spiSlave
+type SpiBus struct {
+	master SpiMaster
+	slave  SpiSlave
 }

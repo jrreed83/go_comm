@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-func TestDFF(t *testing.T) {
+func TestDFlipFlop(t *testing.T) {
 	clkLine := make(chan byte)
 	dataLine := make(chan byte)
 	outputLine := make(chan byte)
 
-	circuit := dff{dataLine: dataLine, outputLine: outputLine, clkLine: clkLine}
+	circuit := DFlipFlop{dataLine: dataLine, outputLine: outputLine, clkLine: clkLine}
 
 	t.Log("Kicking off Flip-Flop")
 	circuit.Start(0)

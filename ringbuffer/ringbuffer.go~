@@ -34,6 +34,6 @@ func (r *RingBuffer) Read() (byte, error) {
 	}
 	x := r.buffer[r.readPtr]
 	r.readPtr = (r.readPtr + 1) % r.capacity
-	r.length += 1
+	r.length -= 1
 	return x, nil
 }

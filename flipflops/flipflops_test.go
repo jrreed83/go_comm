@@ -1,4 +1,4 @@
-package digitaldesign
+package flipflops
 
 import (
 	"sync"

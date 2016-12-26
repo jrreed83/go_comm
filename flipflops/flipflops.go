@@ -1,4 +1,4 @@
-package digitaldesign
+package flipflops
 
 type DFlipFlop struct {
 	clkLine    <-chan byte

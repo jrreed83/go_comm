@@ -7,14 +7,14 @@ import (
 )
 
 func TestDFlipFlop(t *testing.T) {
-	clkLine := make(chan byte)
-	dataLine := make(chan byte)
-	outputLine := make(chan byte)
+	clkChan := make(chan byte)
+	dataChan := make(chan byte)
+	outputChan := make(chan byte)
 
-	circuit := DFlipFlop{dataLine: dataLine, outputLine: outputLine, clkLine: clkLine}
+	dff := DFlipFlop{dataLine: dataChan, outputLine: outputChan, clkLine: clkChan}
 
 	t.Log("Kicking off Flip-Flop")
-	circuit.Start(0)
+	dff.Start(0)
 
 	var wg sync.WaitGroup
 
@@ -22,39 +22,39 @@ func TestDFlipFlop(t *testing.T) {
 
 	t.Log("Kicking Off Clock")
 	go func() {
-		clkLine <- 0
-		clkLine <- 1
-		clkLine <- 0
-		clkLine <- 1
-		clkLine <- 0
-		clkLine <- 1
-		clkLine <- 0
-		clkLine <- 1
-		clkLine <- 0
-		clkLine <- 1
-		clkLine <- 0
+		clkChan <- 0
+		clkChan <- 1
+		clkChan <- 0
+		clkChan <- 1
+		clkChan <- 0
+		clkChan <- 1
+		clkChan <- 0
+		clkChan <- 1
+		clkChan <- 0
+		clkChan <- 1
+		clkChan <- 0
 		wg.Done()
 	}()
 	t.Log("Kicking Off Data Line")
 	go func() {
-		dataLine <- 23
-		dataLine <- 23
-		dataLine <- 65
-		dataLine <- 54
-		dataLine <- 41
-		dataLine <- 42
-		dataLine <- 12
-		dataLine <- 12
-		dataLine <- 75
-		dataLine <- 46
-		dataLine <- 34
+		dataChan <- 23
+		dataChan <- 23
+		dataChan <- 65
+		dataChan <- 54
+		dataChan <- 41
+		dataChan <- 42
+		dataChan <- 12
+		dataChan <- 12
+		dataChan <- 75
+		dataChan <- 46
+		dataChan <- 34
 		wg.Done()
 	}()
 
 	go func() {
 		for {
 			select {
-			case y := <-outputLine:
+			case y := <-outputChan:
 				t.Log(y)
 			case <-time.After(1):
 				t.Log("Times Out ... Quitting")

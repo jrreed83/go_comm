@@ -10,9 +10,9 @@ type Uart struct {
 }
 
 func newUart() *Uart {
-	return &Uart{cmdChan: make(chan byte),
-		inputChan:  make(chan byte),
-		outputChan: make(chan byte)}
+	return &Uart{txBuffer: NewRingBuffer(8),
+		rxBuffer: NewRingBuffer(8),
+		channel:  make(chan byte)}
 }
 func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
@@ -44,11 +44,8 @@ func (u *Uart) Take() byte {
 
 func main() {
 	u := newUart()
-
 	u.Start()
-
 	u.Put(1)
 	x := u.Take()
-
 	fmt.Println(x)
 }

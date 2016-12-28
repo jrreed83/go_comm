@@ -1,11 +1,12 @@
 package main
 
 import "fmt"
+import . "github.com/jrreed83/go_comm/ringbuffer"
 
 type Uart struct {
-	cmdChan    chan byte
-	inputChan  chan byte
-	outputChan chan byte
+	txBuffer RingBuffer
+	rxBuffer RingBuffer
+	channel  chan byte
 }
 
 func newUart() *Uart {
@@ -14,28 +15,31 @@ func newUart() *Uart {
 		outputChan: make(chan byte)}
 }
 func (u *Uart) Start() {
-	// Start transmitter.  Forwards data
-	// from 'outside' to receiver
+	// Take data off transmit buffer and send across channel
 	go func() {
 		for {
-			u.inputChan <- <-u.cmdChan
+			x := u.txBuffer.Read()
+			u.channel <- x
 		}
 	}()
 
-	// Start receiver
+	// Take data off channel and put onto receive buffer
 	go func() {
 		for {
-			u.outputChan <- <-u.inputChan
+			x := <-u.channel
+			u.rxBuffer.Write(x)
 		}
 	}()
 }
 
 func (u *Uart) Put(b byte) {
-	u.cmdChan <- b
+	// Put byte onto transmit buffer
+	u.txBuffer.Write(b)
 }
 
 func (u *Uart) Take() byte {
-	return <-u.outputChan
+	// Take byte off receive buffer
+	return u.rxBuffer.Read()
 }
 
 func main() {

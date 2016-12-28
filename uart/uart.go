@@ -1,24 +1,25 @@
 package main
 
 import "fmt"
-import . "github.com/jrreed83/go_comm/ringbuffer"
+
+//import . "github.com/jrreed83/go_comm/ringbuffer"
 
 type Uart struct {
-	txBuffer RingBuffer
-	rxBuffer RingBuffer
+	txBuffer chan byte
+	rxBuffer chan byte
 	channel  chan byte
 }
 
 func newUart() *Uart {
-	return &Uart{txBuffer: NewRingBuffer(8),
-		rxBuffer: NewRingBuffer(8),
+	return &Uart{txBuffer: make(chan byte, 8),
+		rxBuffer: make(chan byte, 8),
 		channel:  make(chan byte)}
 }
 func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
 	go func() {
 		for {
-			x := u.txBuffer.Read()
+			x := <-u.txBuffer
 			u.channel <- x
 		}
 	}()
@@ -27,25 +28,26 @@ func (u *Uart) Start() {
 	go func() {
 		for {
 			x := <-u.channel
-			u.rxBuffer.Write(x)
+			u.rxBuffer <- x
 		}
 	}()
 }
 
-func (u *Uart) Put(b byte) {
+func (u *Uart) Put(x byte) {
 	// Put byte onto transmit buffer
-	u.txBuffer.Write(b)
+	u.txBuffer <- x
 }
 
-func (u *Uart) Take() byte {
+func (u *Uart) Get() byte {
 	// Take byte off receive buffer
-	return u.rxBuffer.Read()
+	return <-u.rxBuffer
 }
 
 func main() {
 	u := newUart()
 	u.Start()
 	u.Put(1)
-	x := u.Take()
-	fmt.Println(x)
+	u.Put(5)
+	fmt.Println(u.Get())
+	fmt.Println(u.Get())
 }

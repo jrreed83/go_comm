@@ -19,7 +19,9 @@ func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
 	go func() {
 		for {
+			// Wait for signal from putter
 			x := <-u.txBuffer
+			// Send signal to putter
 			u.channel <- x
 		}
 	}()
@@ -28,6 +30,7 @@ func (u *Uart) Start() {
 	go func() {
 		for {
 			x := <-u.channel
+
 			u.rxBuffer <- x
 		}
 	}()
@@ -40,7 +43,8 @@ func (u *Uart) Put(x byte) {
 
 func (u *Uart) Get() byte {
 	// Take byte off receive buffer
-	return <-u.rxBuffer
+	x := <-u.rxBuffer
+	return x
 }
 
 func main() {
@@ -48,6 +52,10 @@ func main() {
 	u.Start()
 	u.Put(1)
 	u.Put(5)
-	fmt.Println(u.Get())
-	fmt.Println(u.Get())
+
+	x := u.Get()
+	fmt.Println(x)
+
+	y := u.Get()
+	fmt.Println(y)
 }

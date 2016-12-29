@@ -18,7 +18,7 @@ func NewUart() *Uart {
 		rxChannel: make(chan byte)}
 }
 func (u *Uart) Start() {
-	// Take data off transmit buffer and send across channel
+	// Transmitter
 	go func() {
 		var i byte
 		for {
@@ -30,7 +30,7 @@ func (u *Uart) Start() {
 		}
 	}()
 
-	// Take data off channel and put onto receive buffer
+	// Receiver
 	go func() {
 		var x byte
 		var i byte

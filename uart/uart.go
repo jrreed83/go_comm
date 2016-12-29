@@ -11,8 +11,8 @@ type Uart struct {
 }
 
 func NewUart() *Uart {
-	return &Uart{txBuffer: make(chan byte, 8),
-		rxBuffer: make(chan byte, 8),
+	return &Uart{txBuffer: make(chan byte, 16),
+		rxBuffer: make(chan byte, 16),
 		channel:  make(chan byte)}
 }
 func (u *Uart) Start() {
@@ -35,22 +35,31 @@ func (u *Uart) Start() {
 
 func (u *Uart) Put(x byte) error {
 	// Put byte onto transmit buffer
-	select {
-	case u.txBuffer <- x:
-		return nil
-	case <-time.After(1):
-		return errors.New("Put method failed due to timeout")
+	var i byte
+	for i = 0; i < 8; i++ {
+		bit := (x >> i) & 0x01
+		select {
+		case u.txBuffer <- bit:
+		case <-time.After(1):
+			return errors.New("Put method failed due to timeout")
+		}
 	}
+	return nil
 }
 
 func (u *Uart) Get() (byte, error) {
-	// Take byte off receive buffer
-	select {
-	case x := <-u.rxBuffer:
-		return x, nil
-	case <-time.After(1):
-		return 0, errors.New("Get method failed due to timeout")
+	// Put byte onto transmit buffer
+	var x byte
+	var i byte
+	for i = 0; i < 8; i++ {
+		select {
+		case bit := <-u.rxBuffer:
+			x |= (bit << i)
+		case <-time.After(1):
+			return x, errors.New("Put method failed due to timeout")
+		}
 	}
+	return x, nil
 }
 
 func main() {
@@ -58,21 +67,15 @@ func main() {
 	u.Start()
 	var err error
 	var x byte
-	var i int
 
-	for i = 0; i < 10; i++ {
-		if err = u.Put(byte(i)); err != nil {
-			fmt.Println(err)
-			return
-		}
+	if err = u.Put(86); err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	for i = 0; i < 10; i++ {
-		if x, err = u.Get(); err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println(x)
+	if x, err = u.Get(); err != nil {
+		fmt.Println(err)
+		return
 	}
-
+	fmt.Printf("%c\n", x)
 }

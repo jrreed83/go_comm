@@ -5,39 +5,54 @@ import "time"
 import "errors"
 
 type Uart struct {
-	txBuffer  chan byte
-	rxBuffer  chan byte
-	txChannel chan byte
-	rxChannel chan byte
+	txBuffer chan byte
+	rxBuffer chan byte
+	txChan   chan byte
+	rxChan   chan byte
+}
+
+type Bus struct {
+	txChan1 chan byte
+	rxChan1 chan byte
+	txChan2 chan byte
+	rxChan2 chan byte
+}
+
+func (b *Bus) Start() {
+	go func() {
+		for {
+			b.rxChan2 <- <-b.txChan1
+		}
+	}()
 }
 
 func NewUart() *Uart {
-	return &Uart{txBuffer: make(chan byte, 16),
-		rxBuffer:  make(chan byte, 16),
-		txChannel: make(chan byte),
-		rxChannel: make(chan byte)}
+	return &Uart{
+		txBuffer: make(chan byte, 8),
+		rxBuffer: make(chan byte, 8),
+		txChan:   make(chan byte),
+		rxChan:   make(chan byte)}
 }
+
 func (u *Uart) Start() {
-	// Transmitter
 	go func() {
 		var i byte
 		for {
 			x := <-u.txBuffer
 			for i = 0; i < 8; i++ {
 				bit := (x >> i) & 0x01
-				u.txChannel <- bit
+				u.txChan <- bit
 			}
 		}
 	}()
 
-	// Receiver
 	go func() {
 		var x byte
 		var i byte
 		for {
 			x = 0
 			for i = 0; i < 8; i++ {
-				bit := <-u.txChannel
+				bit := <-u.rxChan
 				x |= (bit << i)
 			}
 			u.rxBuffer <- x
@@ -49,10 +64,10 @@ func (u *Uart) Put(x byte) error {
 	// Put byte onto transmit buffer
 	select {
 	case u.txBuffer <- x:
-	case <-time.After(1):
+		return nil
+	case <-time.After(1 * time.Second):
 		return errors.New("Put method failed due to timeout")
 	}
-	return nil
 }
 
 func (u *Uart) Get() (byte, error) {
@@ -60,26 +75,48 @@ func (u *Uart) Get() (byte, error) {
 	var x byte
 	select {
 	case x = <-u.rxBuffer:
-	case <-time.After(1):
-		return x, errors.New("Put method failed due to timeout")
+		return x, nil
+	case <-time.After(1 * time.Second):
+		return x, errors.New("Get method failed due to timeout")
 	}
-	return x, nil
 }
 
 func main() {
-	u := NewUart()
-	u.Start()
+
+	u1 := NewUart()
+	u2 := NewUart()
+	bus := Bus{
+		txChan1: u1.txChan,
+		rxChan1: u1.rxChan,
+		txChan2: u2.txChan,
+		rxChan2: u2.rxChan}
+
+	u1.Start()
+	u2.Start()
+	bus.Start()
+
 	var err error
 	var x byte
 
-	if err = u.Put(86); err != nil {
+	if err = u1.Put(86); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if x, err = u.Get(); err != nil {
+	if err = u1.Put(76); err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("%c\n", x)
+
+	if x, err = u2.Get(); err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("%d\n", x)
+
+	if x, err = u2.Get(); err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("%d\n", x)
 }

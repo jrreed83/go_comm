@@ -18,16 +18,26 @@ func NewUart() *Uart {
 func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
 	go func() {
+		var i byte
 		for {
 			x := <-u.txBuffer
-			u.channel <- x
+			for i = 0; i < 8; i++ {
+				bit := (x >> i) & 0x01
+				u.channel <- bit
+			}
 		}
 	}()
 
 	// Take data off channel and put onto receive buffer
 	go func() {
+		var x byte
+		var i byte
 		for {
-			x := <-u.channel
+			x = 0
+			for i = 0; i < 8; i++ {
+				bit := <-u.channel
+				x |= (bit << i)
+			}
 			u.rxBuffer <- x
 		}
 	}()
@@ -35,14 +45,10 @@ func (u *Uart) Start() {
 
 func (u *Uart) Put(x byte) error {
 	// Put byte onto transmit buffer
-	var i byte
-	for i = 0; i < 8; i++ {
-		bit := (x >> i) & 0x01
-		select {
-		case u.txBuffer <- bit:
-		case <-time.After(1):
-			return errors.New("Put method failed due to timeout")
-		}
+	select {
+	case u.txBuffer <- x:
+	case <-time.After(1):
+		return errors.New("Put method failed due to timeout")
 	}
 	return nil
 }
@@ -50,14 +56,10 @@ func (u *Uart) Put(x byte) error {
 func (u *Uart) Get() (byte, error) {
 	// Put byte onto transmit buffer
 	var x byte
-	var i byte
-	for i = 0; i < 8; i++ {
-		select {
-		case bit := <-u.rxBuffer:
-			x |= (bit << i)
-		case <-time.After(1):
-			return x, errors.New("Put method failed due to timeout")
-		}
+	select {
+	case x = <-u.rxBuffer:
+	case <-time.After(1):
+		return x, errors.New("Put method failed due to timeout")
 	}
 	return x, nil
 }

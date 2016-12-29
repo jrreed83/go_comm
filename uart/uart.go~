@@ -1,6 +1,7 @@
 package main
 
 import "fmt"
+import "time"
 
 //import . "github.com/jrreed83/go_comm/ringbuffer"
 
@@ -19,9 +20,7 @@ func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
 	go func() {
 		for {
-			// Wait for signal from putter
 			x := <-u.txBuffer
-			// Send signal to putter
 			u.channel <- x
 		}
 	}()
@@ -30,7 +29,6 @@ func (u *Uart) Start() {
 	go func() {
 		for {
 			x := <-u.channel
-
 			u.rxBuffer <- x
 		}
 	}()
@@ -38,13 +36,20 @@ func (u *Uart) Start() {
 
 func (u *Uart) Put(x byte) {
 	// Put byte onto transmit buffer
-	u.txBuffer <- x
+	select {
+	case u.txBuffer <- x:
+	case <-time.After(1):
+	}
 }
 
 func (u *Uart) Get() byte {
 	// Take byte off receive buffer
-	x := <-u.rxBuffer
-	return x
+	select {
+	case x := <-u.rxBuffer:
+		return x
+	case <-time.After(1):
+		return 0
+	}
 }
 
 func main() {

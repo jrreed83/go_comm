@@ -11,10 +11,10 @@ func TestDFlipFlop(t *testing.T) {
 	dataChan := make(chan byte)
 	outputChan := make(chan byte)
 
-	dff := DFlipFlop{dataLine: dataChan, outputLine: outputChan, clkLine: clkChan}
+	dff := DFlipFlop{dataLine: dataChan, outputLine: outputChan, clkLine: clkChan, state: 0}
 
 	t.Log("Kicking off Flip-Flop")
-	dff.Start(0)
+	dff.Start()
 
 	var wg sync.WaitGroup
 
@@ -37,17 +37,17 @@ func TestDFlipFlop(t *testing.T) {
 	}()
 	t.Log("Kicking Off Data Line")
 	go func() {
-		dataChan <- 23
-		dataChan <- 23
-		dataChan <- 65
-		dataChan <- 54
-		dataChan <- 41
-		dataChan <- 42
-		dataChan <- 12
-		dataChan <- 12
-		dataChan <- 75
-		dataChan <- 46
-		dataChan <- 34
+		dataChan <- 1
+		dataChan <- 0
+		dataChan <- 0
+		dataChan <- 1
+		dataChan <- 1
+		dataChan <- 1
+		dataChan <- 0
+		dataChan <- 1
+		dataChan <- 1
+		dataChan <- 1
+		dataChan <- 0
 		wg.Done()
 	}()
 

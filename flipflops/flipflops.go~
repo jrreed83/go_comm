@@ -4,18 +4,19 @@ type DFlipFlop struct {
 	clkLine    <-chan byte
 	dataLine   <-chan byte
 	outputLine chan<- byte
+	state      byte
 }
 
-func (d *DFlipFlop) Start(state byte) {
+func (d *DFlipFlop) Start() {
 	go func() {
 		risingEdge := risingEdgeAction()
 		for {
 			clk := <-d.clkLine
 			data := <-d.dataLine
 			if risingEdge(clk) {
-				state = data
+				d.state = data
 			}
-			d.outputLine <- state
+			d.outputLine <- d.state
 		}
 	}()
 
@@ -35,25 +36,4 @@ func risingEdgeAction() func(byte) bool {
 		return risingEdge
 	}
 	return action
-}
-
-type SpiMaster struct {
-	cmdLine  chan<- byte
-	sclkLine chan<- byte
-	mosiLine chan<- byte
-	misoLine <-chan byte
-	ssLine   <-chan byte
-}
-
-type SpiSlave struct {
-	sclkLine   <-chan byte
-	mosiLine   <-chan byte
-	misoLine   chan<- byte
-	ssLine     chan<- byte
-	outputLine chan<- byte
-}
-
-type SpiBus struct {
-	master SpiMaster
-	slave  SpiSlave
 }

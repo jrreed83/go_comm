@@ -2,8 +2,7 @@ package main
 
 import "fmt"
 import "time"
-
-//import . "github.com/jrreed83/go_comm/ringbuffer"
+import "errors"
 
 type Uart struct {
 	txBuffer chan byte
@@ -11,7 +10,7 @@ type Uart struct {
 	channel  chan byte
 }
 
-func newUart() *Uart {
+func NewUart() *Uart {
 	return &Uart{txBuffer: make(chan byte, 8),
 		rxBuffer: make(chan byte, 8),
 		channel:  make(chan byte)}
@@ -34,33 +33,46 @@ func (u *Uart) Start() {
 	}()
 }
 
-func (u *Uart) Put(x byte) {
+func (u *Uart) Put(x byte) error {
 	// Put byte onto transmit buffer
 	select {
 	case u.txBuffer <- x:
+		return nil
 	case <-time.After(1):
+		return errors.New("Put method failed due to timeout")
 	}
 }
 
-func (u *Uart) Get() byte {
+func (u *Uart) Get() (byte, error) {
 	// Take byte off receive buffer
 	select {
 	case x := <-u.rxBuffer:
-		return x
+		return x, nil
 	case <-time.After(1):
-		return 0
+		return 0, errors.New("Get method failed due to timeout")
 	}
 }
 
 func main() {
-	u := newUart()
+	u := NewUart()
 	u.Start()
-	u.Put(1)
-	u.Put(5)
+	var err error
+	var x byte
+	var i int
 
-	x := u.Get()
-	fmt.Println(x)
+	for i = 0; i < 10; i++ {
+		if err = u.Put(byte(i)); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
 
-	y := u.Get()
-	fmt.Println(y)
+	for i = 0; i < 10; i++ {
+		if x, err = u.Get(); err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(x)
+	}
+
 }

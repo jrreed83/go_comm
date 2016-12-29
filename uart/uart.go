@@ -5,15 +5,17 @@ import "time"
 import "errors"
 
 type Uart struct {
-	txBuffer chan byte
-	rxBuffer chan byte
-	channel  chan byte
+	txBuffer  chan byte
+	rxBuffer  chan byte
+	txChannel chan byte
+	rxChannel chan byte
 }
 
 func NewUart() *Uart {
 	return &Uart{txBuffer: make(chan byte, 16),
-		rxBuffer: make(chan byte, 16),
-		channel:  make(chan byte)}
+		rxBuffer:  make(chan byte, 16),
+		txChannel: make(chan byte),
+		rxChannel: make(chan byte)}
 }
 func (u *Uart) Start() {
 	// Take data off transmit buffer and send across channel
@@ -23,7 +25,7 @@ func (u *Uart) Start() {
 			x := <-u.txBuffer
 			for i = 0; i < 8; i++ {
 				bit := (x >> i) & 0x01
-				u.channel <- bit
+				u.txChannel <- bit
 			}
 		}
 	}()
@@ -35,7 +37,7 @@ func (u *Uart) Start() {
 		for {
 			x = 0
 			for i = 0; i < 8; i++ {
-				bit := <-u.channel
+				bit := <-u.txChannel
 				x |= (bit << i)
 			}
 			u.rxBuffer <- x

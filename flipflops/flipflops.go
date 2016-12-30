@@ -1,12 +1,19 @@
 package flipflops
 
 type DFlipFlop struct {
-	clkLine    <-chan byte
-	dataLine   <-chan byte
-	outputLine chan<- byte
+	clkLine    chan byte
+	dataLine   chan byte
+	outputLine chan byte
 	state      byte
 }
 
+func NewDFlipFlop() *DFlipFlop {
+	return &DFlipFlop{
+		clkLine:    make(chan byte),
+		dataLine:   make(chan byte),
+		outputLine: make(chan byte),
+		state:      0}
+}
 func (d *DFlipFlop) Start() {
 	go func() {
 		risingEdge := risingEdgeAction()

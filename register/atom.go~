@@ -1,0 +1,13 @@
+package main
+
+import "fmt"
+
+type Register struct {
+	writeChan chan byte
+	reqChan   chan struct{}
+	readChan  chan byte
+}
+
+func main() {
+	fmt.Println("vim-go")
+}

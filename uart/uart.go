@@ -11,17 +11,17 @@ type Uart struct {
 	rxChan   chan byte
 }
 
-type Bus struct {
+type Router struct {
 	txChan1 chan byte
 	rxChan1 chan byte
 	txChan2 chan byte
 	rxChan2 chan byte
 }
 
-func (b *Bus) Start() {
+func (r *Router) Start() {
 	go func() {
 		for {
-			b.rxChan2 <- <-b.txChan1
+			r.rxChan2 <- <-r.txChan1
 		}
 	}()
 }
@@ -85,7 +85,7 @@ func main() {
 
 	u1 := NewUart()
 	u2 := NewUart()
-	bus := Bus{
+	r := Router{
 		txChan1: u1.txChan,
 		rxChan1: u1.rxChan,
 		txChan2: u2.txChan,
@@ -93,7 +93,7 @@ func main() {
 
 	u1.Start()
 	u2.Start()
-	bus.Start()
+	r.Start()
 
 	var err error
 	var x byte

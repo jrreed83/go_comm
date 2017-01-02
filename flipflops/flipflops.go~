@@ -9,9 +9,9 @@ type DFlipFlop struct {
 
 func NewDFlipFlop() *DFlipFlop {
 	return &DFlipFlop{
-		clkLine:    make(chan byte),
-		dataLine:   make(chan byte),
-		outputLine: make(chan byte),
+		clkLine:    make(chan byte, 10),
+		dataLine:   make(chan byte, 10),
+		outputLine: make(chan byte, 10),
 		state:      0}
 }
 func (d *DFlipFlop) Start() {
@@ -21,9 +21,10 @@ func (d *DFlipFlop) Start() {
 			clk := <-d.clkLine
 			data := <-d.dataLine
 			if risingEdge(clk) {
-				d.state = data
+				//				d.state = data
+				d.outputLine <- data
 			}
-			d.outputLine <- d.state
+			//			d.outputLine <- d.state
 		}
 	}()
 

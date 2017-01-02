@@ -3,6 +3,7 @@ package main
 import "fmt"
 import "errors"
 import "time"
+import "sync"
 
 type Register struct {
 	inputChan  chan byte
@@ -49,18 +50,50 @@ func (r *Register) Start() {
 }
 
 func main() {
-	var err error
+	//var err error
 	var x byte
+
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	r := NewRegister()
 	r.Start()
 
-	if err = r.Write(45); err != nil {
-		fmt.Println("No Error")
-	}
-	err = r.Write(65)
-	err = r.Write(64)
-	err = r.Write(23)
-	x, err = r.Read()
-	fmt.Println(x)
+	go func() {
+		_ = r.Write(1)
+		time.Sleep(10 * time.Millisecond)
+
+		_ = r.Write(2)
+		time.Sleep(10 * time.Millisecond)
+
+		_ = r.Write(3)
+		time.Sleep(10 * time.Millisecond)
+
+		_ = r.Write(4)
+		time.Sleep(10 * time.Millisecond)
+
+		wg.Done()
+	}()
+
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		x, _ = r.Read()
+		fmt.Println(x)
+
+		time.Sleep(10 * time.Millisecond)
+		x, _ = r.Read()
+		fmt.Println(x)
+
+		time.Sleep(10 * time.Millisecond)
+		x, _ = r.Read()
+		fmt.Println(x)
+
+		time.Sleep(10 * time.Millisecond)
+		x, _ = r.Read()
+		fmt.Println(x)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
 }

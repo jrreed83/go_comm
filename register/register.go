@@ -6,7 +6,6 @@ import "time"
 
 type Register struct {
 	inputChan  chan byte
-	reqChan    chan struct{}
 	outputChan chan byte
 	state      byte
 }
@@ -14,7 +13,6 @@ type Register struct {
 func NewRegister() *Register {
 	return &Register{
 		inputChan:  make(chan byte),
-		reqChan:    make(chan struct{}),
 		outputChan: make(chan byte),
 		state:      0}
 }
@@ -31,15 +29,10 @@ func (r *Register) Write(x byte) error {
 func (r *Register) Read() (byte, error) {
 	var x byte
 	select {
-	case r.reqChan <- struct{}{}:
-		select {
-		case x = <-r.outputChan:
-			return x, nil
-		case <-time.After(1 * time.Second):
-			return x, errors.New("Read from register timed-out")
-		}
+	case x = <-r.outputChan:
+		return x, nil
 	case <-time.After(1 * time.Second):
-		return x, errors.New("Request from register timed-out")
+		return x, errors.New("Read from register timed-out")
 	}
 }
 
@@ -49,8 +42,7 @@ func (r *Register) Start() {
 			select {
 			case x := <-r.inputChan:
 				r.state = x
-			case <-r.reqChan:
-				r.outputChan <- r.state
+			case r.outputChan <- r.state:
 			}
 		}
 	}()

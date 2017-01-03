@@ -1,63 +1,70 @@
 package main
 
 import "fmt"
-import "errors"
+
+//import "errors"
 import "time"
 import "sync"
 
+type Reg struct {
+	sync.Mutex
+	state byte
+}
+
+func NewReg() *Reg {
+	return &Reg{state: 0}
+}
+
+func (r *Reg) Write(x byte) error {
+	r.Lock()
+	r.state = x
+	r.Unlock()
+	return nil
+}
+
+func (r *Reg) Read() (byte, error) {
+	var x byte
+	r.Lock()
+	x = r.state
+	r.Unlock()
+	return x, nil
+}
+
 type Register struct {
-	inputChan  chan byte
-	outputChan chan byte
-	state      byte
+	lockChan chan struct{}
+	state    byte
 }
 
 func NewRegister() *Register {
-	return &Register{
-		inputChan:  make(chan byte),
-		outputChan: make(chan byte),
-		state:      0}
+	r := Register{
+		lockChan: make(chan struct{}, 1),
+		state:    0}
+	r.lockChan <- struct{}{}
+	return &r
 }
 
 func (r *Register) Write(x byte) error {
-	select {
-	case r.inputChan <- x:
-		return nil
-	case <-time.After(1 * time.Second):
-		return errors.New("Writing to register timed-out")
-	}
+	<-r.lockChan
+	r.state = x
+	r.lockChan <- struct{}{}
+	return nil
 }
 
 func (r *Register) Read() (byte, error) {
 	var x byte
-	select {
-	case x = <-r.outputChan:
-		return x, nil
-	case <-time.After(1 * time.Second):
-		return x, errors.New("Read from register timed-out")
-	}
-}
-
-func (r *Register) Start() {
-	go func() {
-		for {
-			select {
-			case x := <-r.inputChan:
-				r.state = x
-			case r.outputChan <- r.state:
-			}
-		}
-	}()
+	<-r.lockChan
+	x = r.state
+	r.lockChan <- struct{}{}
+	return x, nil
 }
 
 func main() {
-	//var err error
+
 	var x byte
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-
 	r := NewRegister()
-	r.Start()
 
 	go func() {
 		_ = r.Write(1)
@@ -96,4 +103,5 @@ func main() {
 	}()
 
 	wg.Wait()
+
 }

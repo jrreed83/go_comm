@@ -6,6 +6,36 @@ import (
 	"time"
 )
 
+func TestDFF(t *testing.T) {
+
+	var x byte
+	d := NewDFF()
+
+	t.Log("Kicking off Flip-Flop")
+	d.Start()
+
+	d.clk.Write(0)
+	d.data.Write(0)
+	x = d.Sample()
+	t.Log(x)
+
+	d.clk.Write(1)
+	d.data.Write(1)
+	x = d.Sample()
+	t.Log(x)
+
+	d.clk.Write(0)
+	d.data.Write(1)
+	x = d.Sample()
+	t.Log(x)
+
+	d.clk.Write(1)
+	d.data.Write(0)
+	x = d.Sample()
+	t.Log(x)
+
+}
+
 func TestDFlipFlop(t *testing.T) {
 
 	d := NewDFlipFlop()

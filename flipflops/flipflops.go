@@ -5,7 +5,6 @@ import (
 )
 
 type DFlipFlop struct {
-	reqLine    chan byte
 	enableLine chan byte
 	clkLine    chan byte
 	inputLine  chan byte
@@ -15,7 +14,6 @@ type DFlipFlop struct {
 
 func NewDFlipFlop() *DFlipFlop {
 	return &DFlipFlop{
-		reqLine:    make(chan byte),
 		enableLine: make(chan byte),
 		clkLine:    make(chan byte),
 		inputLine:  make(chan byte),
@@ -30,37 +28,35 @@ func (d *DFlipFlop) Start() {
 		for {
 			clk := <-d.clkLine
 			if risingEdge(clk) {
-
-				select {
-				case <-d.enableLine:
+				enable := <-d.enableLine
+				if enable == 0 {
 					d.state = <-d.inputLine
-					<-d.enableLine
-				case <-d.reqLine:
-					d.outputLine <- d.state
-					<-d.reqLine
 				}
 			}
+			d.outputLine <- d.state
 		}
 	}()
 
 }
 
-func (d *DFlipFlop) Write(x byte) {
+func (d *DFlipFlop) Write(x byte) byte {
 	d.clkLine <- 0
+	_ = <-d.outputLine
 	d.clkLine <- 1
 	d.enableLine <- 0
 	d.inputLine <- x
-	d.enableLine <- 1
+	y := <-d.outputLine
+	return y
 
 }
 
 func (d *DFlipFlop) Read() byte {
 	d.clkLine <- 0
+	_ = <-d.outputLine
 	d.clkLine <- 1
-	d.reqLine <- 0
-	x := <-d.outputLine
-	d.reqLine <- 1
-	return x
+	d.enableLine <- 1
+	y := <-d.outputLine
+	return y
 }
 
 func risingEdgeAction() func(byte) bool {

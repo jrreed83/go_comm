@@ -1,74 +1,103 @@
 package flipflops
 
-import "github.com/jrreed83/go_comm/port"
+import (
+	"fmt"
+	"github.com/jrreed83/go_comm/port"
+	"time"
+)
 
 type DFF struct {
-	clk        port.Port
-	data       port.Port
-	output     port.Port
-	reqChan    chan struct{}
-	outputChan chan byte
+	input  port.Port
+	output port.Port
+	clk    port.Port
+	enable chan byte
 }
 
 func NewDFF() *DFF {
-	return &DFF{
-		clk:        *port.NewPort(),
-		data:       *port.NewPort(),
-		output:     *port.NewPort(),
-		reqChan:    make(chan struct{}),
-		outputChan: make(chan byte)}
-}
+	d := DFF{
+		input:  *port.NewPort(),
+		output: *port.NewPort(),
+		clk:    *port.NewPort(),
+		enable: make(chan byte)}
 
-func (d *DFF) Sample() byte {
-	d.reqChan <- struct{}{}
-	return <-d.outputChan
+	return &d
 }
 
 func (d *DFF) Start() {
 	go func() {
 		risingEdge := risingEdgeAction()
 		for {
-			select {
-			case <-d.reqChan:
-				clk := d.clk.Read()
-				if risingEdge(clk) {
-					data := d.data.Read()
-					d.output.Write(data)
-				}
-				d.outputChan <- d.output.Read()
+			<-d.enable
+			clk := d.clk.Read()
+			if risingEdge(clk) {
+				fmt.Println("Rising Edge")
+				input := d.input.Read()
+				d.output.Write(input)
 			}
 		}
 	}()
 }
 
 type DFlipFlop struct {
+	reqLine    chan struct{}
+	enableLine chan struct{}
 	clkLine    chan byte
-	dataLine   chan byte
+	inputLine  chan byte
 	outputLine chan byte
 	state      byte
 }
 
 func NewDFlipFlop() *DFlipFlop {
-	return &DFlipFlop{
-		clkLine:    make(chan byte, 10),
-		dataLine:   make(chan byte, 10),
-		outputLine: make(chan byte, 10),
+	d := DFlipFlop{
+		reqLine:    make(chan struct{}),
+		enableLine: make(chan struct{}),
+		clkLine:    make(chan byte),
+		inputLine:  make(chan byte),
+		outputLine: make(chan byte),
 		state:      0}
+
+	return &d
 }
+
 func (d *DFlipFlop) Start() {
 	go func() {
 		risingEdge := risingEdgeAction()
 		for {
 			clk := <-d.clkLine
-			data := <-d.dataLine
 			if risingEdge(clk) {
-				d.state = data
-				d.outputLine <- data
+
+				select {
+				case <-d.enableLine:
+					d.state = <-d.inputLine
+				case <-time.After(time.Millisecond):
+				}
+
+				select {
+				case <-d.reqLine:
+					d.outputLine <- d.state
+				case <-time.After(time.Millisecond):
+				}
+
 			}
-			d.outputLine <- d.state
+
 		}
 	}()
 
+}
+
+func (d *DFlipFlop) Write(x byte) {
+	d.clkLine <- 0
+	d.clkLine <- 1
+	d.enableLine <- struct{}{}
+	d.inputLine <- x
+}
+
+func (d *DFlipFlop) Read() byte {
+	d.clkLine <- 0
+	d.clkLine <- 1
+	d.reqLine <- struct{}{}
+	x := <-d.outputLine
+	return x
 }
 
 func risingEdgeAction() func(byte) bool {

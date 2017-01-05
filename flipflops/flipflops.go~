@@ -14,7 +14,7 @@ type DFlipFlop struct {
 
 func NewDFlipFlop() *DFlipFlop {
 	return &DFlipFlop{
-		enableLine: make(chan byte),
+		enableLine: make(chan byte, 1),
 		clkLine:    make(chan byte),
 		inputLine:  make(chan byte),
 		outputLine: make(chan byte),
@@ -40,10 +40,10 @@ func (d *DFlipFlop) Start() {
 }
 
 func (d *DFlipFlop) Write(x byte) byte {
+	d.enableLine <- 0
 	d.clkLine <- 0
 	_ = <-d.outputLine
 	d.clkLine <- 1
-	d.enableLine <- 0
 	d.inputLine <- x
 	y := <-d.outputLine
 	return y
@@ -51,10 +51,10 @@ func (d *DFlipFlop) Write(x byte) byte {
 }
 
 func (d *DFlipFlop) Read() byte {
+	d.enableLine <- 1
 	d.clkLine <- 0
 	_ = <-d.outputLine
 	d.clkLine <- 1
-	d.enableLine <- 1
 	y := <-d.outputLine
 	return y
 }

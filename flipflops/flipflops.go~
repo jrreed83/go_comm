@@ -4,20 +4,36 @@ import (
 //"time"
 )
 
+type Wire chan byte
+
+func NewWire() Wire {
+	return make(chan byte, 1)
+}
+
+func send(w Wire, x byte) {
+	w <- x
+}
+
+func receive(w Wire) byte {
+	return <-w
+}
+
 type DFlipFlop struct {
-	enableLine chan byte
-	clkLine    chan byte
-	inputLine  chan byte
-	outputLine chan byte
+	reqLine    Wire
+	enableLine Wire
+	clkLine    Wire
+	inputLine  Wire
+	outputLine Wire
 	state      byte
 }
 
 func NewDFlipFlop() *DFlipFlop {
 	return &DFlipFlop{
-		enableLine: make(chan byte, 1),
-		clkLine:    make(chan byte),
-		inputLine:  make(chan byte),
-		outputLine: make(chan byte),
+		reqLine:    NewWire(),
+		enableLine: NewWire(),
+		clkLine:    NewWire(),
+		inputLine:  NewWire(),
+		outputLine: NewWire(),
 		state:      0}
 
 }
@@ -26,36 +42,31 @@ func (d *DFlipFlop) Start() {
 	go func() {
 		risingEdge := risingEdgeAction()
 		for {
-			clk := <-d.clkLine
+			clk := receive(d.clkLine)
 			if risingEdge(clk) {
-				enable := <-d.enableLine
+				enable := receive(d.enableLine)
 				if enable == 0 {
-					d.state = <-d.inputLine
+					d.state = receive(d.inputLine)
 				}
 			}
-			d.outputLine <- d.state
+			send(d.outputLine, d.state)
 		}
 	}()
 
 }
 
-func (d *DFlipFlop) Write(x byte) byte {
-	d.enableLine <- 0
-	d.clkLine <- 0
-	_ = <-d.outputLine
-	d.clkLine <- 1
-	d.inputLine <- x
-	y := <-d.outputLine
+func (d *DFlipFlop) Write(x byte) {
+	send(d.clkLine, 0)
+	send(d.clkLine, 1)
+	send(d.enableLine, 0)
+	send(d.inputLine, x)
 	return y
 
 }
 
 func (d *DFlipFlop) Read() byte {
-	d.enableLine <- 1
-	d.clkLine <- 0
-	_ = <-d.outputLine
-	d.clkLine <- 1
-	y := <-d.outputLine
+	send(d.reqLine, 0)
+	y := receive(d.outputLine)
 	return y
 }
 

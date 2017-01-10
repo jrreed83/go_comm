@@ -5,19 +5,14 @@ import (
 	"sync"
 )
 
-type Sample struct {
-	t uint32
-	x byte
+type TVar struct {
+	value  interface{}
+	nxtPtr *TVar
+	prvPtr *TVar
 }
 
-type TVal struct {
-	val    byte
-	nxtPtr *TVal
-	prvPtr *TVal
-}
-
-func NewTVal(val byte, previous *TVal) *TVal {
-	newVal := TVal{val: val, nxtPtr: nil, prvPtr: nil}
+func NewTVar(val interface{}, previous *TVar) *TVar {
+	newVal := TVar{value: val, nxtPtr: nil, prvPtr: nil}
 	newVal.prvPtr = previous
 	if previous != nil {
 		previous.nxtPtr = &newVal
@@ -27,26 +22,30 @@ func NewTVal(val byte, previous *TVal) *TVal {
 
 type Signal struct {
 	sync.Mutex
-	readPtr  *TVal
-	writePtr *TVal
+	readPtr  *TVar
+	writePtr *TVar
 }
 
-func NewSignal(x byte) *Signal {
-	tval := NewTVal(x, nil)
-	return &Signal{readPtr: tval, writePtr: tval}
+func NewSignal() *Signal {
+	return &Signal{readPtr: nil, writePtr: nil}
 }
 
-func (s *Signal) Read() byte {
-	var x byte
+func (s *Signal) Get() interface{} {
+	var x interface{}
 	s.Lock()
-	x = s.readPtr.val
+	if s.readPtr != nil {
+		x = s.readPtr.value
+	}
 	s.Unlock()
 	return x
 }
 
-func (s *Signal) Write(x byte) {
+func (s *Signal) Put(x interface{}) {
 	s.Lock()
-	s.writePtr = NewTVal(x, s.writePtr)
+	s.writePtr = NewTVar(x, s.writePtr)
+	if s.readPtr == nil {
+		s.readPtr = s.writePtr
+	}
 	s.Unlock()
 }
 
@@ -57,17 +56,18 @@ func (s *Signal) Update() {
 }
 
 func (s *Signal) Assign(s1 *Signal) {
-	x := s1.Read()
-	s.Write(x)
+	x := s1.Get()
+	s.Put(x)
 }
 
 func main() {
-	s1 := NewSignal(0)
-	s1.Write(1)
+	s1 := NewSignal()
+	s1.Put(0)
+	s1.Put("hello")
 	s1.Update()
 
-	s2 := NewSignal(0)
+	s2 := NewSignal()
 	s2.Assign(s1)
 	s2.Update()
-	fmt.Println(s2.Read())
+	fmt.Println(s2.Get())
 }

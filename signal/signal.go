@@ -21,7 +21,7 @@ func NewTVar(val interface{}, previous *TVar) *TVar {
 }
 
 type Signal struct {
-	sync.Mutex
+	sync.RWMutex
 	readPtr  *TVar
 	writePtr *TVar
 }
@@ -32,24 +32,21 @@ func NewSignal() *Signal {
 
 func (s *Signal) Get() interface{} {
 	var x interface{}
-	s.Lock()
+	s.RLock()
 	if s.readPtr != nil {
 		x = s.readPtr.value
 	}
-	s.Unlock()
+	s.RUnlock()
 	return x
 }
 
 func (s *Signal) Put(x interface{}) {
-	s.Lock()
+	s.RLock()
 	s.writePtr = NewTVar(x, s.writePtr)
-	if s.readPtr == nil {
-		s.readPtr = s.writePtr
-	}
-	s.Unlock()
+	s.RUnlock()
 }
 
-func (s *Signal) Update() {
+func (s *Signal) Commit() {
 	s.Lock()
 	s.readPtr = s.writePtr
 	s.Unlock()
@@ -64,10 +61,10 @@ func main() {
 	s1 := NewSignal()
 	s1.Put(0)
 	s1.Put("hello")
-	s1.Update()
+	s1.Commit()
 
 	s2 := NewSignal()
 	s2.Assign(s1)
-	s2.Update()
+	s2.Commit()
 	fmt.Println(s2.Get())
 }

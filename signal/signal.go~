@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	//"time"
 )
 
 type TVar struct {
@@ -24,10 +25,11 @@ type Signal struct {
 	sync.RWMutex
 	readPtr  *TVar
 	writePtr *TVar
+	event    chan struct{}
 }
 
 func NewSignal() *Signal {
-	return &Signal{readPtr: nil, writePtr: nil}
+	return &Signal{readPtr: nil, writePtr: nil, event: make(chan struct{})}
 }
 
 func (s *Signal) Get() interface{} {
@@ -50,6 +52,7 @@ func (s *Signal) Commit() {
 	s.Lock()
 	s.readPtr = s.writePtr
 	s.Unlock()
+	s.event <- struct{}{}
 }
 
 func (s *Signal) Assign(s1 *Signal) {
@@ -59,12 +62,31 @@ func (s *Signal) Assign(s1 *Signal) {
 
 func main() {
 	s1 := NewSignal()
+	s2 := NewSignal()
+
+	//go func() {
+	//	s1.Put(0)
+	//	s1.Put(1)
+	//	s1.Commit()
+
+	//s1.Put(0)
+	//s1.Put(1)
+	//s1.Commit()
+	//}()
+
+	go func() {
+		<-s1.event
+		s2.Put(1)
+		//s2.Commit()
+
+		//<-s1.event
+		//s2.Put(1)
+		//s2.Commit()
+	}()
+
 	s1.Put(0)
-	s1.Put("hello")
+	s1.Put(1)
 	s1.Commit()
 
-	s2 := NewSignal()
-	s2.Assign(s1)
-	s2.Commit()
-	fmt.Println(s2.Get())
+	fmt.Println(s2.writePtr.value)
 }

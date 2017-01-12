@@ -30,7 +30,7 @@ func AddNode(val interface{}, previous *Node) *Node {
 }
 
 type Signal struct {
-	sync.RWMutex
+	sync.Mutex
 	readPtr  *Node
 	writePtr *Node
 	event    chan struct{}
@@ -42,18 +42,18 @@ func NewSignal() *Signal {
 
 func (s *Signal) Get() interface{} {
 	var x interface{}
-	s.RLock()
+	s.Lock()
+	defer s.Unlock()
 	if s.readPtr != nil {
 		x = s.readPtr.value
 	}
-	s.RUnlock()
 	return x
 }
 
 func (s *Signal) Put(x interface{}) {
-	s.RLock()
+	s.Lock()
 	s.writePtr = AddNode(x, s.writePtr)
-	s.RUnlock()
+	s.Unlock()
 }
 
 func (s *Signal) Commit() {
@@ -73,52 +73,40 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(2)
 
 	go func() {
 		s1.Put(1)
 		s1.Put(2)
 		s1.Commit()
 		s1.event <- struct{}{}
+		<-s2.event
 
 		s1.Put(3)
 		s1.Put(4)
 		s1.Commit()
 		s1.event <- struct{}{}
+		<-s2.event
 
 		wg.Done()
 	}()
 
 	go func() {
 		<-s1.event
-		fmt.Println(s1.Get())
 		s2.Assign(s1)
+		s2.event <- struct{}{}
 		s2.Commit()
+		fmt.Println(s2.Get())
 
 		<-s1.event
-		fmt.Println(s1.Get())
 		s2.Assign(s1)
+		s2.event <- struct{}{}
 		s2.Commit()
+		fmt.Println(s2.Get())
 
 		wg.Done()
 	}()
 
-	go func() {
-		//		<-s2.event
-		//	fmt.Println(s2.Get())
-
-		//		<-s2.event
-		//	fmt.Println(s2.Get())
-
-		wg.Done()
-	}()
 	wg.Wait()
-	//<-s2.event
-	//<-s2.event
-	//	time.Sleep(time.Second)
-
-	//fmt.Println(s2.readPtr.value)
-	//fmt.Println(s2.readPtr.prvPtr.value)
-	//fmt.Println(s1.writePtr.prvPtr.prvPtr.value)
 
 }

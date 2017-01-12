@@ -30,7 +30,7 @@ func AddNode(val interface{}, previous *Node) *Node {
 }
 
 type Signal struct {
-	sync.Mutex
+	sync.RWMutex
 	readPtr  *Node
 	writePtr *Node
 	event    chan struct{}
@@ -42,8 +42,8 @@ func NewSignal() *Signal {
 
 func (s *Signal) Get() interface{} {
 	var x interface{}
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 	if s.readPtr != nil {
 		x = s.readPtr.value
 	}
@@ -51,9 +51,9 @@ func (s *Signal) Get() interface{} {
 }
 
 func (s *Signal) Put(x interface{}) {
-	s.Lock()
+	s.RLock()
 	s.writePtr = AddNode(x, s.writePtr)
-	s.Unlock()
+	s.RUnlock()
 }
 
 func (s *Signal) Commit() {

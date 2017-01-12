@@ -3,25 +3,25 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
+	//"time"
 )
 
-type TVar struct {
+type Node struct {
 	value  interface{}
-	nxtPtr *TVar
-	prvPtr *TVar
+	nxtPtr *Node
+	prvPtr *Node
 }
 
-func NewTVar(val interface{}) *TVar {
-	return &TVar{
+func NewNode(val interface{}) *Node {
+	return &Node{
 		value:  val,
 		nxtPtr: nil,
 		prvPtr: nil,
 	}
 }
 
-func AddTVar(val interface{}, previous *TVar) *TVar {
-	newVal := NewTVar(val)
+func AddNode(val interface{}, previous *Node) *Node {
+	newVal := NewNode(val)
 	newVal.prvPtr = previous
 	if previous != nil {
 		previous.nxtPtr = newVal
@@ -31,13 +31,13 @@ func AddTVar(val interface{}, previous *TVar) *TVar {
 
 type Signal struct {
 	sync.RWMutex
-	readPtr  *TVar
-	writePtr *TVar
+	readPtr  *Node
+	writePtr *Node
 	event    chan struct{}
 }
 
 func NewSignal() *Signal {
-	return &Signal{readPtr: nil, writePtr: nil, event: make(chan struct{}, 2)}
+	return &Signal{readPtr: nil, writePtr: nil, event: make(chan struct{})}
 }
 
 func (s *Signal) Get() interface{} {
@@ -52,7 +52,7 @@ func (s *Signal) Get() interface{} {
 
 func (s *Signal) Put(x interface{}) {
 	s.RLock()
-	s.writePtr = AddTVar(x, s.writePtr)
+	s.writePtr = AddNode(x, s.writePtr)
 	s.RUnlock()
 }
 
@@ -60,18 +60,6 @@ func (s *Signal) Commit() {
 	s.Lock()
 	s.readPtr = s.writePtr
 	s.Unlock()
-	select {
-	case s.event <- struct{}{}:
-	case <-time.After(time.Millisecond):
-	}
-
-}
-
-func (s *Signal) Notify() {
-	select {
-	case s.event <- struct{}{}:
-	case <-time.After(time.Millisecond):
-	}
 }
 
 func (s *Signal) Assign(s1 *Signal) {
@@ -85,39 +73,52 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
-		s1.Put(0)
 		s1.Put(1)
+		s1.Put(2)
 		s1.Commit()
+		s1.event <- struct{}{}
 
-		s1.Put(0)
-		s1.Put(1)
+		s1.Put(3)
+		s1.Put(4)
 		s1.Commit()
+		s1.event <- struct{}{}
 
 		wg.Done()
 	}()
 
 	go func() {
 		<-s1.event
-		s2.Put(5)
+		fmt.Println(s1.Get())
+		s2.Assign(s1)
 		s2.Commit()
-		//s2.Notify()
 
 		<-s1.event
-		s2.Put(8)
+		fmt.Println(s1.Get())
+		s2.Assign(s1)
 		s2.Commit()
-		//s2.Notify()
 
 		wg.Done()
 	}()
 
+	go func() {
+		//		<-s2.event
+		//	fmt.Println(s2.Get())
+
+		//		<-s2.event
+		//	fmt.Println(s2.Get())
+
+		wg.Done()
+	}()
 	wg.Wait()
 	//<-s2.event
 	//<-s2.event
 	//	time.Sleep(time.Second)
 
-	fmt.Println(s2.writePtr.value)
-	fmt.Println(s2.writePtr.prvPtr.value)
+	//fmt.Println(s2.readPtr.value)
+	//fmt.Println(s2.readPtr.prvPtr.value)
+	//fmt.Println(s1.writePtr.prvPtr.prvPtr.value)
+
 }

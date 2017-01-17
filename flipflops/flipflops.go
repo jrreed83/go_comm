@@ -4,84 +4,46 @@ import (
 //"time"
 )
 
-type Wire chan byte
-
-func NewWire() Wire {
-	return make(chan byte, 1)
+type Message struct {
+	Time uint32
+	Data byte
 }
 
-func send(w Wire, x byte) {
-	w <- x
+type SystemClock struct {
+	Time       uint32
+	State      byte
+	Event      chan struct{}
+	Out        chan Message
+	NumReaders uint8
 }
 
-func receive(w Wire) byte {
-	return <-w
+func NewSystemClock(numReaders uint8) *SystemClock {
+	return &SystemClock{
+		Time:       0,
+		State:      0,
+		Event:      make(chan struct{}),
+		Out:        make(chan Message, numReaders),
+		NumReaders: numReaders,
+	}
 }
 
-type DFlipFlop struct {
-	reqLine    Wire
-	enableLine Wire
-	clkLine    Wire
-	inputLine  Wire
-	outputLine Wire
-	state      byte
-}
-
-func NewDFlipFlop() *DFlipFlop {
-	return &DFlipFlop{
-		reqLine:    NewWire(),
-		enableLine: NewWire(),
-		clkLine:    NewWire(),
-		inputLine:  NewWire(),
-		outputLine: NewWire(),
-		state:      0}
-
-}
-
-func (d *DFlipFlop) Start() {
+func (c *SystemClock) Start() {
 	go func() {
-		risingEdge := risingEdgeAction()
+		var i int
 		for {
-			clk := receive(d.clkLine)
-			if risingEdge(clk) {
-				enable := receive(d.enableLine)
-				if enable == 0 {
-					d.state = receive(d.inputLine)
-				}
+			<-c.Event
+			c.State = (c.State + 1) % 2
+			c.Time++
+			for i = 0; i < c.NumReaders; i++ {
+				c.Out <- Message{Time: c.Time, Data: c.State}
 			}
-			send(d.outputLine, d.state)
 		}
 	}()
-
 }
 
-func (d *DFlipFlop) Write(x byte) {
-	send(d.clkLine, 0)
-	send(d.clkLine, 1)
-	send(d.enableLine, 0)
-	send(d.inputLine, x)
-	return y
-
-}
-
-func (d *DFlipFlop) Read() byte {
-	send(d.reqLine, 0)
-	y := receive(d.outputLine)
-	return y
-}
-
-func risingEdgeAction() func(byte) bool {
-	isFirstSample := true
-	var prevClk byte
-	action := func(currClk byte) bool {
-		if isFirstSample {
-			isFirstSample = false
-			prevClk = currClk
-			return false
-		}
-		risingEdge := (currClk == 1) && (prevClk == 0)
-		prevClk = currClk
-		return risingEdge
+func (c *SystemClock) Tick() {
+	select {
+	case c.Event <- struct{}{}:
+	default:
 	}
-	return action
 }

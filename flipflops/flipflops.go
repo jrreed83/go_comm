@@ -55,14 +55,25 @@ func (c *SystemClock) Tick() {
 	}
 }
 
-func wait(clk chan Message, n uint8, x byte) Message {
-	var i int
+func (c *SystemClock) wait(pause uint8, data byte) Message {
+
+	var cnt uint8
 	var msg Message
-	for i = 0; i <= int(n); i++ {
-		msg = <-clk
+
+	cnt = 0
+	for {
+		select {
+		case msg = <-c.Out:
+			if cnt == pause {
+				return Message{Time: msg.Time, Data: data}
+			}
+			cnt++
+		case <-time.After(time.Second):
+			panic("wait method timed out")
+		}
+
 	}
 
-	return Message{Time: msg.Time, Data: x}
 }
 
 func main() {
@@ -72,6 +83,7 @@ func main() {
 	wg.Add(3)
 
 	sysClk := NewSystemClock(1)
+
 	sysClk.Start()
 
 	d := make(chan Message)
@@ -89,8 +101,8 @@ func main() {
 	}()
 
 	go func() {
-		d <- wait(sysClk.Out, 2, 1)
-		d <- wait(sysClk.Out, 2, 4)
+		d <- sysClk.wait(2, 1)
+		d <- sysClk.wait(2, 4)
 		wg.Done()
 	}()
 
@@ -99,7 +111,7 @@ func main() {
 			select {
 			case msg := <-d:
 				fmt.Printf("%d %d\n", msg.Time, msg.Data)
-			case <-time.After(time.Second):
+			case <-time.After(time.Millisecond):
 				wg.Done()
 				return
 

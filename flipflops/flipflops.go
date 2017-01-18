@@ -55,26 +55,49 @@ func (c *SystemClock) Tick() {
 	}
 }
 
-func main() {
+func wait(clk chan Message, n uint8, x byte) Message {
 	var i int
+	var msg Message
+	for i = 0; i <= int(n); i++ {
+		msg = <-clk
+	}
+
+	return Message{Time: msg.Time, Data: x}
+}
+
+func main() {
+
 	var wg sync.WaitGroup
 
-	wg.Add(2)
+	wg.Add(3)
 
 	sysClk := NewSystemClock(1)
 	sysClk.Start()
 
+	d := make(chan Message)
+
 	go func() {
-		for i = 1; i <= 10; i++ {
-			sysClk.Tick()
-		}
+
+		sysClk.Tick()
+		sysClk.Tick()
+		sysClk.Tick()
+		sysClk.Tick()
+		sysClk.Tick()
+		sysClk.Tick()
+
+		wg.Done()
+	}()
+
+	go func() {
+		d <- wait(sysClk.Out, 2, 1)
+		d <- wait(sysClk.Out, 2, 4)
 		wg.Done()
 	}()
 
 	go func() {
 		for {
 			select {
-			case msg := <-sysClk.Out:
+			case msg := <-d:
 				fmt.Printf("%d %d\n", msg.Time, msg.Data)
 			case <-time.After(time.Second):
 				wg.Done()

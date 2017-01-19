@@ -13,7 +13,6 @@ type Message struct {
 
 type SystemClock struct {
 	Time       uint32
-	State      byte
 	Event      chan struct{}
 	Out        chan Message
 	NumReaders uint8
@@ -22,7 +21,6 @@ type SystemClock struct {
 func NewSystemClock(numReaders uint8) *SystemClock {
 	return &SystemClock{
 		Time:       0,
-		State:      0,
 		Event:      make(chan struct{}),
 		Out:        make(chan Message, numReaders),
 		NumReaders: numReaders,
@@ -35,9 +33,8 @@ func (c *SystemClock) Start() {
 		for {
 			<-c.Event
 			for i = 0; i < int(c.NumReaders); i++ {
-				c.Out <- Message{Time: c.Time, Data: c.State}
+				c.Out <- Message{Time: c.Time}
 			}
-			c.State = (c.State + 1) % 2
 			c.Time++
 
 		}

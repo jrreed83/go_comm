@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
+	//	"time"
 )
 
 type Message struct {
@@ -12,137 +12,79 @@ type Message struct {
 }
 
 type Signal struct {
-	Msg        chan Message    // Informs reader processes what time-stamp to read
-	Tbl        map[uint32]byte // Shared memory
-	NumReaders uint8
+	Msg chan Message    // Informs reader processes what time-stamp to read
+	Tbl map[uint32]byte // Shared memory
+	Num int             // Number of readers/subscribers
 }
 
-func NewSignal(n uint8) *Signal {
+func NewSignal(n int) *Signal {
 	return &Signal{
-		Msg:        make(chan Message),
-		Tbl:        make(map[uint32]byte, n),
-		NumReaders: n,
+		Msg: make(chan Message),
+		Tbl: make(map[uint32]byte, n),
+		Num: n,
 	}
 }
 
-func (s *Signal) Put() {
+func (s *Signal) Put(t uint32, d byte) {
+	s.Tbl[t] = d
 }
 
-func (s *Signal) Get() {
+func (s *Signal) Get() byte {
+	return 0
 }
 
 func (s *Signal) Notify(t uint32) {
 	var i int
-	for i = 0; i < int(s.NumReaders); i++ {
-		s.Msg <- t
+	for i = 0; i < s.Num; i++ {
+		s.Msg <- Message{Time: t, Data: 0}
 	}
 }
 
-type SystemClock struct {
-	Time       uint32
-	Event      chan struct{}
-	Out        chan Message
-	NumReaders uint8
+func (s *Signal) Wait() Message {
+	return <-s.Msg
 }
 
-func NewSystemClock(numReaders uint8) *SystemClock {
-	return &SystemClock{
-		Time:       0,
-		Event:      make(chan struct{}),
-		Out:        make(chan Message, numReaders),
-		NumReaders: numReaders,
-	}
+type Clock struct {
+	Time uint32
+	In   *Signal
+	Out  *Signal
 }
 
-func (c *SystemClock) Start() {
+func (c *Clock) Start() {
 	go func() {
-		var i int
 		for {
-			<-c.Event
-			for i = 0; i < int(c.NumReaders); i++ {
-				c.Out <- Message{Time: c.Time}
-			}
+			c.In.Wait()
+			pulse := uint8(c.Time % 2)
+			c.Out.Put(c.Time, pulse)
+			c.Out.Notify(c.Time)
 			c.Time++
 
 		}
 	}()
 }
 
-func (c *SystemClock) Tick() {
-	for {
-		select {
-		case c.Event <- struct{}{}:
-			return
-		default:
-			continue
-		}
-	}
-}
-
-func (c *SystemClock) wait(pause uint8, data byte) Message {
-
-	var cnt uint8
-	var msg Message
-
-	cnt = 0
-	for {
-		select {
-		case msg = <-c.Out:
-			if cnt == pause {
-				return Message{Time: msg.Time, Data: data}
-			}
-			cnt++
-		case <-time.After(time.Second):
-			panic("wait method timed out")
-		}
-
-	}
-
+func (c *Clock) Tick() {
+	c.In.Msg <- Message{}
 }
 
 func main() {
+	s := NewSignal(1)
 
 	var wg sync.WaitGroup
 
-	wg.Add(3)
-
-	sysClk := NewSystemClock(1)
-
-	sysClk.Start()
-
-	d := make(chan Message)
+	wg.Add(2)
 
 	go func() {
-
-		sysClk.Tick()
-		sysClk.Tick()
-		sysClk.Tick()
-		sysClk.Tick()
-		sysClk.Tick()
-		sysClk.Tick()
-
+		s.Put(0, 0)
+		s.Put(1, 4)
+		s.Notify(1)
 		wg.Done()
 	}()
 
 	go func() {
-		d <- sysClk.wait(2, 1)
-		d <- sysClk.wait(2, 4)
+		fmt.Println(s.Wait())
 		wg.Done()
-	}()
-
-	go func() {
-		for {
-			select {
-			case msg := <-d:
-				fmt.Printf("%d %d\n", msg.Time, msg.Data)
-			case <-time.After(time.Millisecond):
-				wg.Done()
-				return
-
-			}
-		}
 	}()
 
 	wg.Wait()
-
 }

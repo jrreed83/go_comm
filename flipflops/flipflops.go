@@ -11,6 +11,33 @@ type Message struct {
 	Data byte
 }
 
+type Signal struct {
+	Msg        chan Message    // Informs reader processes what time-stamp to read
+	Tbl        map[uint32]byte // Shared memory
+	NumReaders uint8
+}
+
+func NewSignal(n uint8) *Signal {
+	return &Signal{
+		Msg:        make(chan Message),
+		Tbl:        make(map[uint32]byte, n),
+		NumReaders: n,
+	}
+}
+
+func (s *Signal) Put() {
+}
+
+func (s *Signal) Get() {
+}
+
+func (s *Signal) Notify(t uint32) {
+	var i int
+	for i = 0; i < int(s.NumReaders); i++ {
+		s.Msg <- t
+	}
+}
+
 type SystemClock struct {
 	Time       uint32
 	Event      chan struct{}

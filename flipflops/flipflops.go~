@@ -33,10 +33,10 @@ func (s *Signal) Get() byte {
 	return 0
 }
 
-func (s *Signal) Notify(t uint32) {
+func (s *Signal) SyncMsg(t uint32) {
 	var i int
 	for i = 0; i < s.Num; i++ {
-		s.Msg <- Message{Time: t, Data: 0}
+		s.Msg <- Message{Time: t}
 	}
 }
 
@@ -44,19 +44,23 @@ func (s *Signal) Wait() Message {
 	return <-s.Msg
 }
 
+func (s *Signal) Raise() {
+	s.Msg <- Message{}
+}
+
 type Clock struct {
-	Time uint32
-	In   *Signal
-	Out  *Signal
+	Time   uint32
+	Event  *Signal
+	Driver *Signal
 }
 
 func (c *Clock) Start() {
 	go func() {
 		for {
-			c.In.Wait()
+			c.Event.Wait()
 			pulse := uint8(c.Time % 2)
-			c.Out.Put(c.Time, pulse)
-			c.Out.Notify(c.Time)
+			c.Driver.Put(c.Time, pulse)
+			c.Driver.SyncMsg(c.Time)
 			c.Time++
 
 		}
@@ -64,7 +68,7 @@ func (c *Clock) Start() {
 }
 
 func (c *Clock) Tick() {
-	c.In.Msg <- Message{}
+	c.Event.Raise()
 }
 
 func main() {
@@ -77,7 +81,7 @@ func main() {
 	go func() {
 		s.Put(0, 0)
 		s.Put(1, 4)
-		s.Notify(1)
+		s.SyncMsg(1)
 		wg.Done()
 	}()
 

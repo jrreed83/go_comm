@@ -18,71 +18,69 @@ type Message struct {
 type Signal struct {
 	Time uint32
 	Val  byte
-	Msg  chan Message    // Informs reader processes what time-stamp to read
+	Clk  chan uint32 // Informs reader processes what time-stamp to read
+	Evt  chan struct{}
 	Tbl  map[uint32]byte // Shared memory
 	Num  int             // Number of readers/subscribers
 }
 
-func NewSignal(n int) *Signal {
-	return &Signal{
-		Time: 0,
-		Val:  0,
-		Msg:  make(chan Message),
-		Tbl:  make(map[uint32]byte, n),
-		Num:  n,
-	}
-}
+func (s *Signal) WaitThenAssign(wait int, d byte) {
 
-func (s *Signal) WaitThenAssign(wait uint32, d byte) {
-	t := s.Time + wait
+	var t uint32
+	for i := 0; i < wait; i++ {
+		t = <-s.Clk
+	}
+	s.Val = d
 	s.Tbl[t] = d
 	s.Time = t
-
-	if s.Val != d {
-		s.Msg <- Message{Time: t, Data: d}
-	}
-
-	s.Time = t
-	s.Val = d
-
+	s.Evt <- struct{}{}
 }
 
 func (s *Signal) Get() byte {
-	return 0
+	return s.Val
 }
 
-func (s *Signal) Wait() (Message, error) {
+func (s *Signal) Wait() error {
 	select {
-	case msg := <-s.Msg:
-		return msg, nil
+	case <-s.Evt:
+		return nil
 	case <-time.After(time.Second):
-		return Message{}, errors.New("No more signal")
+		return errors.New("No more signal")
 	}
 }
 
 func main() {
-	clk := NewSignal(1)
+	c := make(chan uint32)
+	d := NewSignal(c)
 
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 
 	go func() {
-		clk.WaitThenAssign(1, 1)
-		clk.WaitThenAssign(1, 0)
-		clk.WaitThenAssign(1, 1)
+		c <- 0
+		c <- 1
+		c <- 2
+		c <- 3
+		c <- 4
+	}()
+
+	go func() {
+		clk.WaitThenAssign(1, 64)
+		clk.WaitThenAssign(1, 36)
+		clk.WaitThenAssign(1, 79)
 		wg.Done()
 	}()
 
 	go func() {
 		for {
-			msg, err := clk.Wait()
+			err := clk.Wait()
 			if err != nil {
 				fmt.Println(err)
 				wg.Done()
 				return
 			}
-			fmt.Println(msg)
+			fmt.Println(clk.Get())
 		}
 
 	}()

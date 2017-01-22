@@ -28,16 +28,24 @@ func (s *Signal) WaitThenAssign(wait int, d byte) {
 
 	var t uint32
 	for i := 0; i < wait; i++ {
-		t = <-s.Clk
+		select {
+		case t = <-s.Clk:
+		case <-time.After(time.Second):
+			panic("Time Out")
+		}
 	}
+	<-s.Evt
 	s.Val = d
-	s.Tbl[t] = d
 	s.Time = t
 	s.Evt <- struct{}{}
 }
 
 func (s *Signal) Get() byte {
-	return s.Val
+	var r byte
+	<-s.Evt
+	r = s.Val
+	s.Evt <- struct{}{}
+	return r
 }
 
 func (s *Signal) Wait() error {
@@ -51,7 +59,7 @@ func (s *Signal) Wait() error {
 
 func main() {
 	c := make(chan uint32)
-	d := NewSignal(c)
+	d := &Signal{Clk: c, Evt: make(chan struct{}, 1)}
 
 	var wg sync.WaitGroup
 
@@ -66,21 +74,21 @@ func main() {
 	}()
 
 	go func() {
-		clk.WaitThenAssign(1, 64)
-		clk.WaitThenAssign(1, 36)
-		clk.WaitThenAssign(1, 79)
+		d.WaitThenAssign(1, 64)
+		d.WaitThenAssign(1, 36)
+		d.WaitThenAssign(1, 79)
 		wg.Done()
 	}()
 
 	go func() {
 		for {
-			err := clk.Wait()
+			err := d.Wait()
 			if err != nil {
 				fmt.Println(err)
 				wg.Done()
 				return
 			}
-			fmt.Println(clk.Get())
+			fmt.Println(d.Get())
 		}
 
 	}()

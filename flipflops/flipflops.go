@@ -16,12 +16,15 @@ type Message struct {
 }
 
 type Signal struct {
-	Time uint32
-	Val  byte
-	Clk  chan uint32 // Informs reader processes what time-stamp to read
-	Evt  chan struct{}
-	Tbl  map[uint32]byte // Shared memory
-	Num  int             // Number of readers/subscribers
+	sync.RWMutex
+	Time  uint32
+	Val   byte
+	Clk   chan uint32 // Informs reader processes what time-stamp to read
+	Evt   chan struct{}
+	Write chan struct{}
+	Read  chan struct{}
+	Tbl   map[uint32]byte // Shared memory
+	Num   int             // Number of readers/subscribers
 }
 
 func (s *Signal) WaitThenAssign(wait int, d byte) {
@@ -34,17 +37,22 @@ func (s *Signal) WaitThenAssign(wait int, d byte) {
 			panic("Time Out")
 		}
 	}
-	<-s.Evt
+
+	<-s.Write
 	s.Val = d
 	s.Time = t
+	s.Read <- struct{}{}
+
 	s.Evt <- struct{}{}
 }
 
 func (s *Signal) Get() byte {
 	var r byte
-	<-s.Evt
+
+	<-s.Read
 	r = s.Val
-	s.Evt <- struct{}{}
+	s.Write <- struct{}{}
+
 	return r
 }
 
@@ -59,7 +67,14 @@ func (s *Signal) Wait() error {
 
 func main() {
 	c := make(chan uint32)
-	d := &Signal{Clk: c, Evt: make(chan struct{}, 1)}
+	d := &Signal{
+		Clk:   c,
+		Evt:   make(chan struct{}, 1),
+		Write: make(chan struct{}, 1),
+		Read:  make(chan struct{}, 1),
+	}
+
+	d.Write <- struct{}{}
 
 	var wg sync.WaitGroup
 

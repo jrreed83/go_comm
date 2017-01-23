@@ -15,13 +15,11 @@ type Message struct {
 }
 
 type Signal struct {
-	sync.RWMutex
-	Time uint32
-	Val  chan Message
-	Clk  chan uint32 // Informs reader processes what time-stamp to read
-	Evt  chan struct{}
-	Tbl  map[uint32]byte // Shared memory
-	Num  int             // Number of readers/subscribers
+	Val chan Message
+	Clk chan uint32 // Informs reader processes what time-stamp to read
+	Evt chan struct{}
+	Tbl map[uint32]byte // Shared memory
+	Num int             // Number of readers/subscribers
 }
 
 func (s *Signal) WaitThenAssign(wait int, d byte) {
@@ -43,7 +41,7 @@ func (s *Signal) Get() Message {
 	return <-s.Val
 }
 
-func (s *Signal) Wait() error {
+func (s *Signal) WaitForEvent() error {
 	select {
 	case <-s.Evt:
 		return nil
@@ -81,7 +79,7 @@ func main() {
 
 	go func() {
 		for {
-			err := d.Wait()
+			err := d.WaitForEvent()
 			if err != nil {
 				fmt.Println(err)
 				wg.Done()

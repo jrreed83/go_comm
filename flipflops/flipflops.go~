@@ -7,8 +7,14 @@ import (
 	//"time"
 )
 
+func NewSignal() *Signal {
+	return &Signal{
+		Evt: make(chan uint32),
+		Tbl: make(map[uint32]byte),
+	}
+}
+
 type Signal struct {
-	Clk <-chan uint32 // Informs reader processes what time-stamp to read
 	Evt chan uint32
 	Tbl map[uint32]byte // Shared memory
 	Num int             // Number of readers/subscribers
@@ -20,6 +26,10 @@ func (s *Signal) Get(t uint32) byte {
 
 func (s *Signal) Put(t uint32, x byte) {
 	s.Tbl[t] = x
+}
+
+func NewProcess() *Process {
+	return &Process{}
 }
 
 type Process struct {
@@ -55,11 +65,11 @@ func (p *Process) Start(CLK *Signal, D *Signal, Q *Signal) {
 
 func main() {
 
-	CLK := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
-	D := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
-	Q := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
+	CLK := NewSignal()
+	D := NewSignal()
+	Q := NewSignal()
 
-	dff := &Process{}
+	dff := NewProcess()
 
 	dff.Start(CLK, D, Q)
 

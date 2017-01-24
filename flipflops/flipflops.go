@@ -1,94 +1,93 @@
 package main
 
 import (
-	"errors"
+	//"errors"
 	"fmt"
 	"sync"
-	"time"
+	//"time"
 )
 
-type MsgType byte
-
-type Message struct {
-	Time uint32
-	Data byte
-}
-
 type Signal struct {
-	Val chan Message
-	Clk chan uint32 // Informs reader processes what time-stamp to read
-	Evt chan struct{}
+	Clk <-chan uint32 // Informs reader processes what time-stamp to read
+	Evt chan uint32
 	Tbl map[uint32]byte // Shared memory
 	Num int             // Number of readers/subscribers
 }
 
-func (s *Signal) WaitThenAssign(wait int, d byte) {
-
-	var t uint32
-	for i := 0; i < wait; i++ {
-		select {
-		case t = <-s.Clk:
-		case <-time.After(time.Second):
-			panic("Time Out")
-		}
-	}
-
-	s.Val <- Message{Time: t, Data: d}
-	s.Evt <- struct{}{}
+func (s *Signal) Get(t uint32) byte {
+	return s.Tbl[t]
 }
 
-func (s *Signal) Get() Message {
-	return <-s.Val
+func (s *Signal) Put(t uint32, x byte) {
+	s.Tbl[t] = x
 }
 
-func (s *Signal) WaitForEvent() error {
+type Process struct {
+	Time uint32
+}
+
+func (p *Process) Wait(s *Signal) {
 	select {
-	case <-s.Evt:
-		return nil
-	case <-time.After(time.Second):
-		return errors.New("No more signal")
+	case t := <-s.Evt:
+		p.Time = t
+		return
 	}
+
+}
+
+func (p *Process) Get(s *Signal) byte {
+	return s.Get(p.Time)
+}
+
+func (p *Process) Put(s *Signal, x byte) {
+	s.Put(p.Time, x)
+}
+
+func (p *Process) Start(CLK *Signal, D *Signal, Q *Signal) {
+	go func() {
+		for {
+			p.Wait(CLK)
+			x := p.Get(D)
+			p.Put(Q, x)
+		}
+	}()
 }
 
 func main() {
-	c := make(chan uint32)
-	d := &Signal{
-		Clk: c,
-		Evt: make(chan struct{}, 1),
-		Val: make(chan Message, 1),
-	}
+
+	CLK := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
+	D := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
+	Q := &Signal{Evt: make(chan uint32), Tbl: make(map[uint32]byte)}
+
+	dff := &Process{}
+
+	dff.Start(CLK, D, Q)
 
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 
 	go func() {
-		c <- 0
-		c <- 1
-		c <- 2
-		c <- 3
-		c <- 4
-	}()
-
-	go func() {
-		d.WaitThenAssign(1, 64)
-		d.WaitThenAssign(1, 36)
-		d.WaitThenAssign(1, 79)
+		CLK.Put(0, 0)
+		CLK.Put(1, 1)
+		CLK.Evt <- 1
+		CLK.Put(2, 0)
+		CLK.Put(3, 1)
+		CLK.Evt <- 3
+		CLK.Put(4, 0)
 		wg.Done()
 	}()
 
 	go func() {
-		for {
-			err := d.WaitForEvent()
-			if err != nil {
-				fmt.Println(err)
-				wg.Done()
-				return
-			}
-			fmt.Println(d.Get())
-		}
-
+		D.Put(0, 32)
+		D.Put(1, 42)
+		D.Put(2, 98)
+		D.Put(3, 76)
+		D.Put(4, 34)
+		wg.Done()
 	}()
 
 	wg.Wait()
+
+	fmt.Println(Q.Tbl)
 }

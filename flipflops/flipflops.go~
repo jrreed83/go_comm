@@ -3,101 +3,92 @@ package main
 import (
 	//"errors"
 	"fmt"
-	"sync"
+	//"sync"
 	//"time"
 )
 
+func StartDriver(sig *Signal) {
+	go func() {
+		var tr uint32 = 0
+		var tw uint32 = 0
+
+		for {
+			select {
+			case msg := <-sig.PutReqChan:
+
+				prv := sig.Tbl[tr]
+
+				sig.Tbl[tw] = msg.X
+				tr = tw
+				tw++
+
+				if prv != msg.X {
+					sig.EvtChan <- tr
+				}
+
+			case <-sig.GetReqChan:
+				x := sig.Tbl[tr]
+				sig.GetChan <- Msg{X: x, T: tr}
+			}
+
+		}
+
+	}()
+}
+
 func NewSignal() *Signal {
 	return &Signal{
-		Evt: make(chan uint32),
-		Tbl: make(map[uint32]byte),
+		GetReqChan: make(chan uint32),
+		PutReqChan: make(chan Msg),
+		GetChan:    make(chan Msg),
+		EvtChan:    make(chan uint32),
+		Tbl:        make(map[uint32]byte),
 	}
+}
+
+type Msg struct {
+	T uint32
+	X byte
 }
 
 type Signal struct {
-	Evt chan uint32
-	Tbl map[uint32]byte // Shared memory
-	Num int             // Number of readers/subscribers
+	GetReqChan chan uint32
+	PutReqChan chan Msg
+	GetChan    chan Msg
+	EvtChan    chan uint32
+	Tbl        map[uint32]byte // Shared memory
+	Num        int             // Number of readers/subscribers
 }
 
-func (s *Signal) Get(t uint32) byte {
-	return s.Tbl[t]
+func (s *Signal) Assign(x byte) {
+	s.PutReqChan <- Msg{X: x}
 }
 
-func (s *Signal) Put(t uint32, x byte) {
-	s.Tbl[t] = x
-}
-
-func NewProcess() *Process {
-	return &Process{}
-}
-
-type Process struct {
-	Time uint32
-}
-
-func (p *Process) Wait(s *Signal) {
-	select {
-	case t := <-s.Evt:
-		p.Time = t
-		return
-	}
-
-}
-
-func (p *Process) Get(s *Signal) byte {
-	return s.Get(p.Time)
-}
-
-func (p *Process) Put(s *Signal, x byte) {
-	s.Put(p.Time, x)
-}
-
-func (p *Process) Start(CLK *Signal, D *Signal, Q *Signal) {
-	go func() {
-		for {
-			p.Wait(CLK)
-			x := p.Get(D)
-			p.Put(Q, x)
-		}
-	}()
+func (s *Signal) Get() Msg {
+	s.GetReqChan <- 0
+	msg := <-s.GetChan
+	return msg
 }
 
 func main() {
 
-	CLK := NewSignal()
-	D := NewSignal()
-	Q := NewSignal()
+	s := NewSignal()
 
-	dff := NewProcess()
-
-	dff.Start(CLK, D, Q)
-
-	var wg sync.WaitGroup
-
-	wg.Add(2)
+	StartDriver(s)
 
 	go func() {
-		CLK.Put(0, 0)
-		CLK.Put(1, 1)
-		CLK.Evt <- 1
-		CLK.Put(2, 0)
-		CLK.Put(3, 1)
-		CLK.Evt <- 3
-		CLK.Put(4, 0)
-		wg.Done()
+		for {
+			t := <-s.EvtChan
+			fmt.Println(t)
+		}
 	}()
 
-	go func() {
-		D.Put(0, 32)
-		D.Put(1, 42)
-		D.Put(2, 98)
-		D.Put(3, 76)
-		D.Put(4, 34)
-		wg.Done()
-	}()
+	s.Assign(1)
+	s.Assign(1)
+	s.Assign(1)
+	s.Assign(2)
+	x := s.Get()
+	fmt.Println(x)
 
-	wg.Wait()
-
-	fmt.Println(Q.Tbl)
+	fmt.Println("Hello")
 }

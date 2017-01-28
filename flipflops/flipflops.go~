@@ -7,6 +7,8 @@ import (
 	//"time"
 )
 
+// Probably need to protect the read pointer.  Although
+// we probably only really will read it when we get an event
 func StartDriver(sig *Signal) {
 	go func() {
 		var tr uint32 = 0

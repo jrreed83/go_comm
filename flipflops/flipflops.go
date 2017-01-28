@@ -4,31 +4,35 @@ import (
 	//"errors"
 	"fmt"
 	//"sync"
-	//"time"
+	"time"
 )
 
+// Probably need to protect the read pointer.  Although
+// we probably only really will read it when we get an event
 func StartDriver(sig *Signal) {
 	go func() {
-		var tr uint32 = 0
-		var tw uint32 = 0
+		var clk uint32 = 0
 
 		for {
 			select {
-			case msg := <-sig.PutReqChan:
+			case msg := <-sig.PutReq:
+		
+				x := msg.X 
+				t := msg.T + 1
 
-				prv := sig.Tbl[tr]
+				prv := sig.Tbl[clk]
+ 
+				sig.Tbl[clk + t] = x
 
-				sig.Tbl[tw] = msg.X
-				tr = tw
-				tw++
+				clk += t
 
 				if prv != msg.X {
-					sig.EvtChan <- tr
+					sig.Evt <- clk 
 				}
 
-			case <-sig.GetReqChan:
-				x := sig.Tbl[tr]
-				sig.GetChan <- Msg{X: x, T: tr}
+			case <-sig.GetReq:
+				x := sig.Tbl[clk]
+				sig.GetResp <- Msg{X: x, T: clk}
 			}
 
 		}
@@ -38,11 +42,11 @@ func StartDriver(sig *Signal) {
 
 func NewSignal() *Signal {
 	return &Signal{
-		GetReqChan: make(chan uint32),
-		PutReqChan: make(chan Msg),
-		GetChan:    make(chan Msg),
-		EvtChan:    make(chan uint32),
-		Tbl:        make(map[uint32]byte),
+		GetReq:  make(chan uint32),
+		PutReq:  make(chan Msg),
+		GetResp: make(chan Msg),
+		Evt:     make(chan uint32),
+		Tbl:     make(map[uint32]byte),
 	}
 }
 
@@ -52,21 +56,30 @@ type Msg struct {
 }
 
 type Signal struct {
-	GetReqChan chan uint32
-	PutReqChan chan Msg
-	GetChan    chan Msg
-	EvtChan    chan uint32
-	Tbl        map[uint32]byte // Shared memory
-	Num        int             // Number of readers/subscribers
+	GetReq  chan uint32
+	PutReq  chan Msg
+	GetResp chan Msg
+	Evt     chan uint32
+	Tbl     map[uint32]byte // Shared memory
+	Num     int             // Number of readers/subscribers
 }
 
 func (s *Signal) Assign(x byte) {
-	s.PutReqChan <- Msg{X: x}
+	select{
+	case s.PutReq <- Msg{X: x}:
+	case <-time.After(time.Second):
+		panic("Assign timed-out")
+	}
+}
+
+// Here 't' denotes wait time
+func (s *Signal) WaitThenAssign(t uint32, x byte) {
+	s.PutReq <- Msg{X: x, T: t}
 }
 
 func (s *Signal) Get() Msg {
-	s.GetReqChan <- 0
-	msg := <-s.GetChan
+	s.GetReq <- 0
+	msg := <-s.GetResp
 	return msg
 }
 
@@ -78,13 +91,13 @@ func main() {
 
 	go func() {
 		for {
-			t := <-s.EvtChan
+			t := <-s.Evt
 			fmt.Println(t)
 		}
 	}()
 
-	s.Assign(1)
-	s.Assign(1)
+	s.WaitThenAssign(1,1)
+	s.WaitThenAssign(2,1)
 	s.Assign(1)
 	s.Assign(2)
 	x := s.Get()

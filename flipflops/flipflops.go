@@ -20,9 +20,9 @@ func StartDriver(sig *Signal) {
 				x := msg.X 
 				t := msg.T + 1
 
-				prv := sig.Tbl[clk]
+				prv := sig.Wave[clk]
  
-				sig.Tbl[clk + t] = x
+				sig.Wave[clk + t] = x
 
 				clk += t
 
@@ -31,7 +31,7 @@ func StartDriver(sig *Signal) {
 				}
 
 			case <-sig.GetReq:
-				x := sig.Tbl[clk]
+				x := sig.Wave[clk]
 				sig.GetResp <- Msg{X: x, T: clk}
 			}
 
@@ -46,7 +46,7 @@ func NewSignal() *Signal {
 		PutReq:  make(chan Msg),
 		GetResp: make(chan Msg),
 		Evt:     make(chan uint32),
-		Tbl:     make(map[uint32]byte),
+		Wave:    make(map[uint32]byte),
 	}
 }
 
@@ -56,12 +56,12 @@ type Msg struct {
 }
 
 type Signal struct {
-	GetReq  chan uint32
-	PutReq  chan Msg
-	GetResp chan Msg
-	Evt     chan uint32
-	Tbl     map[uint32]byte // Shared memory
-	Num     int             // Number of readers/subscribers
+	GetReq   chan uint32
+	PutReq   chan Msg
+	GetResp  chan Msg
+	Evt      chan uint32
+	Wave     map[uint32]byte // Shared memory
+	Num      int             // Number of readers/subscribers
 }
 
 func (s *Signal) Assign(x byte) {

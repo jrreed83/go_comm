@@ -1,3 +1,3 @@
 # go_comm
 
-Communications in Go
+Communications algorithms in Go

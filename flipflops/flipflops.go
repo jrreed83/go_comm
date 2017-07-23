@@ -7,6 +7,48 @@ import (
 	"time"
 )
 
+type Request struct {
+	T      uint32
+	X      byte
+	Sender chan byte
+}
+
+type SignalServer struct {
+	wave       map[uint32]byte
+	readQueue  chan Request
+	writeQueue chan Request
+}
+
+type SignalListener struct {
+	readQueue chan Request
+	Response  chan byte
+}
+
+type SignalDriver struct {
+	writeQueue chan Request
+	Response   chan byte
+}
+
+func (s *SignalServer) Start() {
+	go func() {
+		for {
+			select {
+			case request := <-s.writeQueue:
+				x := request.X
+				t := request.T
+				s.wave[t] = x
+				request.Sender <- 0
+			case request := <-s.readQueue:
+				t := request.T
+				x := s.wave[t]
+				request.Sender <- x
+			}
+
+		}
+
+	}()
+}
+
 // Probably need to protect the read pointer.  Although
 // we probably only really will read it when we get an event
 func StartDriver(sig *Signal) {
@@ -16,20 +58,15 @@ func StartDriver(sig *Signal) {
 		for {
 			select {
 			case msg := <-sig.PutReq:
-		
-				x := msg.X 
-				t := msg.T + 1
-
+				x := msg.X
+				t := msg.T
 				prv := sig.Wave[clk]
- 
-				sig.Wave[clk + t] = x
-
-				clk += t
-
+				newClk := clk + t + 1
+				sig.Wave[newClk] = x
+				clk = newClk
 				if prv != msg.X {
-					sig.Evt <- clk 
+					sig.Evt <- clk
 				}
-
 			case <-sig.GetReq:
 				x := sig.Wave[clk]
 				sig.GetResp <- Msg{X: x, T: clk}
@@ -56,31 +93,30 @@ type Msg struct {
 }
 
 type Signal struct {
-	GetReq   chan uint32
-	PutReq   chan Msg
-	GetResp  chan Msg
-	Evt      chan uint32
-	Wave     map[uint32]byte // Shared memory
-	Num      int             // Number of readers/subscribers
+	GetReq  chan uint32
+	PutReq  chan Msg
+	GetResp chan Msg
+	Evt     chan uint32
+	Wave    map[uint32]byte // Waveform.  Not directly accessible by processes.
 }
 
 func (s *Signal) Assign(x byte) {
-	select{
+	select {
 	case s.PutReq <- Msg{X: x}:
 	case <-time.After(time.Second):
 		panic("Assign timed-out")
 	}
 }
 
-// Here 't' denotes wait time
-func (s *Signal) WaitThenAssign(t uint32, x byte) {
-	s.PutReq <- Msg{X: x, T: t}
-}
-
+// Get ...
 func (s *Signal) Get() Msg {
-	s.GetReq <- 0
-	msg := <-s.GetResp
-	return msg
+	select {
+	case s.GetReq <- 0:
+		msg := <-s.GetResp
+		return msg
+	case <-time.After(time.Second):
+		panic("Get timed-out")
+	}
 }
 
 func main() {
@@ -96,8 +132,6 @@ func main() {
 		}
 	}()
 
-	s.WaitThenAssign(1,1)
-	s.WaitThenAssign(2,1)
 	s.Assign(1)
 	s.Assign(2)
 	x := s.Get()
